@@ -140,8 +140,10 @@ class KrpsimParser:
         return True
     
     def display_summary(self):
-        """Affiche un résumé de la configuration parsée"""
-        print(f"Nice file! {len(self.processes)} processes, {len(self.stocks)} stocks, {len(self.optimize)} to optimize")
+        """Displays a summary of the parsed configuration""" 
+               
+        print(f"\n{25*'-'}PARSING{25*'-'}\n")    
+        print(f"{len(self.processes)} processes, {len(self.stocks)} stocks, {len(self.optimize)} to optimize")
         
         print("\nStocks initiaux:")
         for stock, qty in self.stocks.items():
@@ -152,20 +154,6 @@ class KrpsimParser:
             print(f"  {process.name}: {process.needs} -> {process.results} (délai: {process.delay})")
         
         print(f"\nOptimisation: {self.optimize}")
-
-
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: python parser.py <config_file_path>")
-        sys.exit(1)
-
-    config_file_path = sys.argv[1]
-    parser = KrpsimParser()
-    
-    if parser.parse_file(config_file_path):
-        parser.display_summary()
-    else:
-        print("Failed to parse the configuration file.")
         
-if __name__ == "__main__":
-    main()
+        
+        
