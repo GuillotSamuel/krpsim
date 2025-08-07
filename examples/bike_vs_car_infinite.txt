@@ -1,0 +1,14 @@
+# infinite test - bike vs car (loop possible)
+money:5
+fuel:2
+energy:2
+
+# processes
+earn_money:(eco_points:1):(money:2):10
+charge_bike:(energy:1):(bike_ready:1):5
+refuel_car:(fuel:1):(car_ready:1):5
+ride_bike:(bike_ready:1):(eco_points:2):20
+drive_car:(car_ready:1):(eco_points:1):15
+
+# objective: maximize eco_points
+optimize:(eco_points)

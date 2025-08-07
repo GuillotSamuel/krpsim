@@ -77,9 +77,9 @@ class KrpsimVerifier:
             self.consume_resources(process)
             self.produce_resources(process)
 
-        print("✅ Trace is valid.")
-        print(f"✔️  Final cycle: {self.last_time}")
-        print("📦 Final stock state:")
+        print("Trace is valid.")
+        print(f"\nFinal cycle: {self.last_time}")
+        print("\nFinal stock state:")
         for res, qty in sorted(self.current_stocks.items()):
             print(f"  {res} => {qty}")
            
