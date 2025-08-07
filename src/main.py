@@ -3,6 +3,7 @@ import os
 import sys
 from parser import KrpsimParser
 from krpsim import KrpsimSimulator
+from krpsim_verif import KrpsimVerif
 
 def main():
     # Check command line arguments

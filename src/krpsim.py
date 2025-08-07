@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import sys
+import os
 import heapq
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
@@ -92,17 +94,34 @@ class KrpsimSimulator:
                 executable.append(process)
         return executable
     
+    # def choose_next_process(self, executable_processes: List[Process]) -> Optional[Process]:
+    #     """Simple strategy: choose the first executable process
+    #     You can modify this function for different strategies"""
+    #     if not executable_processes:
+    #         return None
+
+    #     # Strategy 1: First available
+    #     # return executable_processes[0]
+
+    #     # Strategy 2: Shortest process first
+    #     return min(executable_processes, key=lambda p: p.delay)
+
     def choose_next_process(self, executable_processes: List[Process]) -> Optional[Process]:
-        """Simple strategy: choose the first executable process
-        You can modify this function for different strategies"""
+        """Chooses the next process to execute based on a scoring system."""
         if not executable_processes:
             return None
 
-        # Strategy 1: First available
-        # return executable_processes[0]
+        def process_score(p: Process) -> float:
+            gain = sum(
+                qty for res, qty in p.results.items()
+                if res in self.optimize_criteria
+            )
+            if p.delay == 0:
+                return float('inf') if gain > 0 else 0
 
-        # Strategy 2: Shortest process first
-        return min(executable_processes, key=lambda p: p.delay)
+            return gain / p.delay
+
+        return max(executable_processes, key=process_score)
     
     def process_events_at_current_time(self):
         """Processes all events at the current time"""
@@ -128,9 +147,7 @@ class KrpsimSimulator:
     def simulate(self, max_time: int, verbose: bool = True):
         """Launches the main simulation"""
         if verbose:
-            print(f"Nice file! {len(self.processes)} processes, {len(self.current_stocks)} stocks, {len(self.optimize_criteria)} to optimize")
-            print("Evaluating .................. done.")
-            print("Main walk")
+            print(f"\n{25*'-'}SIMULATION{25*'-'}\n")
         
         iteration_count = 0
         max_iterations = max_time * 100  # Protection against infinite loops
@@ -187,7 +204,7 @@ class KrpsimSimulator:
         print(f"Executed processes:")
         for process_name, count in self.process_count.items():
             if count > 0:
-                print(f"  {process_name}: {count} fois")
+                print(f"  {process_name}: {count} times")
     
     def get_trace_output(self) -> str:
         """Generates the output in the expected format for krpsim_verif"""
@@ -195,3 +212,38 @@ class KrpsimSimulator:
         for time, process_name in self.execution_log:
             output_lines.append(f"{time}:{process_name}")
         return '\n'.join(output_lines)
+
+def main():
+    # Check command line arguments
+    if len(sys.argv) != 3:
+        print("Usage: python main.py <config_file_path> <delay>")
+        sys.exit(1)
+
+    config_file_path = sys.argv[1]
+    delay = int(sys.argv[2])
+    
+    # Parsing the configuration file
+    parser = KrpsimParser()
+
+    if parser.parse_file(config_file_path):
+        parser.display_summary()
+    else:
+        print("Failed to parse the configuration file.")
+        
+    # Krpsim simulator
+    simulator = KrpsimSimulator(parser.stocks, parser.processes, parser.optimize)
+    execution_log = simulator.simulate(delay)
+    
+    simulator.display_final_state()
+    
+    # check traces folder and create if not exists
+    traces_folder = '../traces'
+    if not os.path.exists(traces_folder):
+        os.makedirs(traces_folder)
+    
+    with open(f'{traces_folder}/simulation_trace.txt', 'w') as f:
+        f.write(simulator.get_trace_output())  
+
+
+if __name__ == "__main__":
+    main()
