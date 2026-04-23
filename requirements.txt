@@ -1,0 +1,2 @@
+# No third-party dependencies — only Python standard library modules are used.
+# Python 3.10 or later is required.
