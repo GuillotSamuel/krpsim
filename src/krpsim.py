@@ -306,7 +306,7 @@ class KrpsimSimulator:
 def main() -> None:
     """Entry point: parse arguments, run the simulation, and write the trace file."""
     if len(sys.argv) != 3:
-        print("Usage: python main.py <config_file_path> <delay>")
+        print("Usage: python krpsim.py <config_file_path> <delay>")
         sys.exit(1)
 
     config_file_path = sys.argv[1]

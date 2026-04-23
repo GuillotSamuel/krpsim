@@ -1,0 +1,32 @@
+#
+# farm demo - krpsim
+#
+# Self-renewing simulation: harvesting returns seeds and fields.
+# The scheduler must decide when to sell wheat directly vs processing it
+# into flour and bread for a higher margin.
+#
+# stock      name:quantity
+seeds:12
+water:120
+field:3
+#
+# process   name:(need1:qty1;need2:qty2;[...]):(result1:qty1;result2:qty2;[...]):delay
+#
+# Growing cycle — field and seeds are returned by harvest
+sow:(seeds:3;field:1):(planted:1):2
+irrigate:(planted:1;water:8):(ready:1):15
+harvest:(ready:1):(wheat:12;seeds:4;field:1):5
+#
+# Processing
+mill:(wheat:6):(flour:2):4
+bake:(flour:3;water:2):(bread:5):8
+#
+# Selling — bread gives a much better rate than raw wheat
+sell_wheat:(wheat:10):(coins:40):1
+sell_bread:(bread:5):(coins:150):1
+#
+# optimize time for no process possible,
+# or maximize coins over the given delay
+#
+optimize:(coins)
+#

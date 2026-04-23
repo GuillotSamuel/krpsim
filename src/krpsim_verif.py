@@ -55,12 +55,18 @@ class KrpsimVerifier:
         """
         self.trace = []
         with open(self.trace_path, "r") as f:
-            for line in f:
+            for lineno, line in enumerate(f, 1):
                 line = line.strip()
                 if not line or ":" not in line:
                     continue
                 time_str, process_name = line.split(":", 1)
-                self.trace.append((int(time_str), process_name))
+                try:
+                    self.trace.append((int(time_str), process_name))
+                except ValueError:
+                    raise ValueError(
+                        f"Malformed trace line {lineno}: '{line}' "
+                        f"(expected format: 'time:process_name')"
+                    )
 
     def can_execute_process(self, process: Process) -> bool:
         """Check whether a process can be executed with the current stock.
@@ -140,10 +146,14 @@ def main() -> None:
         print("Usage: python krpsim_verif.py <config_file> <trace_file>")
         sys.exit(1)
 
-    verifier = KrpsimVerifier(config_path=sys.argv[1], trace_path=sys.argv[2])
-    verifier.parse()
-    verifier.load_trace()
-    verifier.verify()
+    try:
+        verifier = KrpsimVerifier(config_path=sys.argv[1], trace_path=sys.argv[2])
+        verifier.parse()
+        verifier.load_trace()
+        verifier.verify()
+    except (ValueError, RuntimeError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

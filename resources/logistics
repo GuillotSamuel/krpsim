@@ -1,0 +1,33 @@
+#
+# logistics demo - krpsim
+#
+# A supply chain across three stages: sourcing, manufacturing, delivery.
+# Trucks are the shared bottleneck for both sourcing and delivery.
+# The scheduler must pipeline all three stages in parallel to maximize
+# delivered orders within the time budget.
+#
+# stock      name:quantity
+budget:500
+truck:3
+factory_slot:2
+#
+# process   name:(need1:qty1;need2:qty2;[...]):(result1:qty1;result2:qty2;[...]):delay
+#
+# Stage 1 — sourcing: truck goes out to collect raw materials
+source_materials:(budget:80;truck:1):(raw_materials:1;truck:1):10
+#
+# Stage 2 — manufacturing: factory turns raw materials into products
+manufacture:(raw_materials:2;factory_slot:1):(product:3;factory_slot:1):20
+#
+# Stage 3 — delivery: truck delivers products to customers
+deliver_small:(product:2;truck:1):(delivered:2;truck:1;revenue:120):8
+deliver_bulk:(product:5;truck:2):(delivered:5;truck:2;revenue:350):15
+#
+# Reinvest revenue into budget to keep the cycle going
+reinvest:(revenue:100):(budget:100):1
+#
+# optimize time for no process possible,
+# or maximize delivered orders over the given delay
+#
+optimize:(delivered)
+#

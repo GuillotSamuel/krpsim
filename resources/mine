@@ -1,0 +1,34 @@
+#
+# mine demo - krpsim
+#
+# Three pickaxes allow up to three concurrent smelting operations.
+# Gold yields more coins per ore but consumes more coal.
+# The scheduler must balance iron vs gold extraction to maximize coins.
+#
+# stock      name:quantity
+coal:40
+iron_ore:24
+gold_ore:9
+pickaxe:3
+#
+# process   name:(need1:qty1;need2:qty2;[...]):(result1:qty1;result2:qty2;[...]):delay
+#
+# Smelting — pickaxe is consumed and returned (simulates tool usage)
+smelt_iron:(iron_ore:2;coal:2;pickaxe:1):(iron_ingot:1;pickaxe:1):8
+smelt_gold:(gold_ore:1;coal:4;pickaxe:1):(gold_ingot:1;pickaxe:1):12
+#
+# Crafting
+forge_sword:(iron_ingot:3):(sword:1):5
+forge_shield:(iron_ingot:5):(shield:1):8
+craft_ring:(gold_ingot:2;iron_ingot:1):(ring:1):4
+#
+# Selling
+sell_sword:(sword:1):(coins:80):1
+sell_shield:(shield:1):(coins:140):1
+sell_ring:(ring:1):(coins:350):1
+#
+# optimize time for no process possible,
+# or maximize coins over the given delay
+#
+optimize:(coins)
+#

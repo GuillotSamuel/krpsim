@@ -1,0 +1,30 @@
+#
+# workshop demo - krpsim
+#
+# Two workers can be assigned to three product lines in parallel.
+# Score: cabinet = 300/30 = 10 > desk = 80/8 = 10 > chair = 30/5 = 6.
+# The scheduler should prefer cabinet and desk over chair.
+# Workers are consumed and returned — they are the shared bottleneck.
+#
+# stock      name:quantity
+worker:2
+wood:50
+metal:30
+fabric:15
+#
+# process   name:(need1:qty1;need2:qty2;[...]):(result1:qty1;result2:qty2;[...]):delay
+#
+# Fast but low-value — score 30/5 = 6
+make_chair:(wood:3;fabric:2;worker:1):(coins:30;worker:1):5
+#
+# Medium — score 80/8 = 10
+make_desk:(wood:6;metal:2;worker:1):(coins:80;worker:1):8
+#
+# Slow but high-value — score 300/30 = 10
+make_cabinet:(wood:10;metal:5;fabric:3;worker:1):(coins:300;worker:1):30
+#
+# optimize time for no process possible,
+# or maximize coins over the given delay
+#
+optimize:(coins)
+#
