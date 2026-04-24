@@ -1,7 +1,6 @@
 # src/parser.py
 
 import re
-from typing import Dict, List
 
 
 class Process:
@@ -14,7 +13,7 @@ class Process:
         delay: Duration of the process in time units.
     """
 
-    def __init__(self, name: str, needs: Dict[str, int], results: Dict[str, int], delay: int) -> None:
+    def __init__(self, name: str, needs: dict[str, int], results: dict[str, int], delay: int) -> None:
         """Initialize a process with its resource requirements and production.
 
         Args:
@@ -48,9 +47,9 @@ class KrpsimParser:
 
     def __init__(self) -> None:
         """Initialize the parser with empty stocks, processes, and optimize lists."""
-        self.stocks: Dict[str, int] = {}
-        self.processes: List[Process] = []
-        self.optimize: List[str] = []
+        self.stocks: dict[str, int] = {}
+        self.processes: list[Process] = []
+        self.optimize: list[str] = []
 
     def parse_file(self, file_path: str) -> bool:
         """Parse a krpsim configuration file and populate stocks, processes, and optimize.
@@ -60,10 +59,11 @@ class KrpsimParser:
         Lines starting with '#' and empty lines are ignored.
 
         Args:
-            file_path: Path to the configuration file to parse.
+            file_path: Path to the krpsim configuration file to parse.
 
         Returns:
-            True if the file was parsed and validated successfully, False otherwise.
+            True  - file was read, every line parsed, and data passed validation.
+            False - file not found, unreadable, malformed line, or validation failure.
         """
         try:
             with open(file_path, 'r') as file:
@@ -145,7 +145,8 @@ class KrpsimParser:
         process = Process(name, needs, results, delay)
         self.processes.append(process)
 
-    def _parse_resource_list(self, resource_str: str) -> Dict[str, int]:
+    @staticmethod
+    def _parse_resource_list(resource_str: str) -> dict[str, int]:
         """Parse a semicolon-separated list of resource:quantity pairs.
 
         Args:
@@ -157,7 +158,7 @@ class KrpsimParser:
         Raises:
             ValueError: If any pair has an invalid format or a non-integer quantity.
         """
-        resources: Dict[str, int] = {}
+        resources: dict[str, int] = {}
 
         if not resource_str:
             return resources
