@@ -304,7 +304,28 @@ class KrpsimSimulator:
         return '\n'.join(output_lines)
 
 def main() -> None:
-    """Entry point: parse arguments, run the simulation, and write the trace file."""
+    """
+    Entry point of the krpsim simulator.
+
+    Parses command-line arguments, loads and validates the configuration file,
+    runs the simulation within the given time delay, displays the final stock
+    state, and writes the execution trace to a file for later verification.
+
+    Usage:
+        python krpsim.py <config_file_path> <delay>
+
+    Args:
+        <config_file_path>: Path to the krpsim configuration file containing
+                            stock definitions, process descriptions, and the
+                            optimize directive.
+        <delay>:            Maximum allowed wall-clock time (in seconds) for
+                            the simulation to run.
+
+    Exits:
+        1 - if the wrong number of arguments is provided.
+        1 - if the configuration file cannot be parsed.
+    """
+    # Enforce strict argument count: exactly config file + delay
     if len(sys.argv) != 3:
         print("Usage: python krpsim.py <config_file_path> <delay>")
         sys.exit(1)
@@ -312,19 +333,22 @@ def main() -> None:
     config_file_path = sys.argv[1]
     delay = int(sys.argv[2])
 
+    # Parse the configuration file into stocks, processes, and optimize targets
     parser = KrpsimParser()
-
     if parser.parse_file(config_file_path):
         parser.display_summary()
     else:
         print("Failed to parse the configuration file.")
         sys.exit(1)
 
+    # Initialize the simulator with the parsed data and run it within the delay
     simulator = KrpsimSimulator(parser.stocks, parser.processes, parser.optimize)
     execution_log = simulator.simulate(delay)
 
+    # Print the final stock quantities after simulation ends
     simulator.display_final_state()
 
+    # Write the execution trace to the traces folder so it can be verified later by krpsim_verif
     traces_folder = '../traces'
     if not os.path.exists(traces_folder):
         os.makedirs(traces_folder)
