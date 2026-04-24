@@ -4,7 +4,8 @@ import re
 
 
 class Process:
-    """Represent a single production process with its resource requirements and output.
+    """
+    Represent a single production process with its resource requirements and output.
 
     Attributes:
         name: Unique identifier for the process.
@@ -13,8 +14,13 @@ class Process:
         delay: Duration of the process in time units.
     """
 
+    # Fix the set of attributes to reduce memory footprint.
+    # Prevents dynamic attribute creation on instances.
+    __slots__ = ('name', 'needs', 'results', 'delay')
+
     def __init__(self, name: str, needs: dict[str, int], results: dict[str, int], delay: int) -> None:
-        """Initialize a process with its resource requirements and production.
+        """
+        Initialize a process with its resource requirements and production.
 
         Args:
             name: Unique identifier for the process.
@@ -28,7 +34,8 @@ class Process:
         self.delay = delay
 
     def __repr__(self) -> str:
-        """Return a human-readable string representation of the process.
+        """
+        Return a human-readable string representation of the process.
 
         Returns:
             A string showing the process name, needs, results, and delay.
@@ -37,7 +44,8 @@ class Process:
 
 
 class KrpsimParser:
-    """Parse a krpsim configuration file into stocks, processes, and optimize criteria.
+    """
+    Parse a krpsim configuration file into stocks, processes, and optimize criteria.
 
     Attributes:
         stocks: Initial resource quantities parsed from the file.
@@ -46,13 +54,16 @@ class KrpsimParser:
     """
 
     def __init__(self) -> None:
-        """Initialize the parser with empty stocks, processes, and optimize lists."""
+        """
+        Initialize the parser with empty stocks, processes, and optimize lists.
+        """
         self.stocks: dict[str, int] = {}
         self.processes: list[Process] = []
         self.optimize: list[str] = []
 
     def parse_file(self, file_path: str) -> bool:
-        """Parse a krpsim configuration file and populate stocks, processes, and optimize.
+        """
+        Parse a krpsim configuration file and populate stocks, processes, and optimize.
 
         The file may contain stock definitions (name:quantity), process definitions
         (name:(needs):(results):delay), and an optimize directive.
@@ -95,12 +106,16 @@ class KrpsimParser:
         except FileNotFoundError:
             print(f"Error: File '{file_path}' not found.")
             return False
+        except (OSError, UnicodeDecodeError) as e:
+            print(f"Error while reading the file: {e}")
+            return False
         except Exception as e:
             print(f"Error while reading the file: {e}")
             return False
 
     def _parse_optimize_line(self, line: str) -> None:
-        """Parse an optimize directive and store the list of target resources.
+        """
+        Parse an optimize directive and store the list of target resources.
 
         Expected format: optimize:(resource1;resource2;...)
 
@@ -118,7 +133,8 @@ class KrpsimParser:
         self.optimize = [c.strip() for c in criteria_str.split(';') if c.strip()]
 
     def _parse_process_line(self, line: str) -> None:
-        """Parse a process definition line and append a Process object to the list.
+        """
+        Parse a process definition line and append a Process object to the list.
 
         Expected format: name:(need1:qty1;need2:qty2):(result1:qty1;result2:qty2):delay
 
@@ -182,7 +198,8 @@ class KrpsimParser:
         return resources
 
     def _parse_stock_line(self, line: str) -> None:
-        """Parse a stock definition line and store the initial quantity.
+        """
+        Parse a stock definition line and store the initial quantity.
 
         Expected format: name:quantity
 
@@ -205,7 +222,8 @@ class KrpsimParser:
             raise ValueError(f"Invalid quantity for {stock_name}: {parts[1]}")
 
     def _validate_parsed_data(self) -> bool:
-        """Validate that all required sections were found in the configuration.
+        """
+        Validate that all required sections were found in the configuration.
 
         Checks that at least one stock, one process, and one optimize criterion
         were parsed.
@@ -216,26 +234,45 @@ class KrpsimParser:
         if not self.stocks:
             print("No stocks defined.")
             return False
-        elif not self.processes:
+        if not self.processes:
             print("No processes defined.")
             return False
-        elif not self.optimize:
+        if not self.optimize:
             print("No optimization defined.")
             return False
 
         return True
 
     def display_summary(self) -> None:
-        """Print a formatted summary of the parsed configuration to stdout."""
-        print(f"\n{25*'-'}PARSING{25*'-'}\n")
+        """
+        Print a formatted summary of the parsed configuration to stdout.
+
+        Displays a separator header, the counts of processes/stocks/optimize
+        criteria, then lists each initial stock with its quantity, each process
+        with its needs, results and delay, and finally the optimization targets.
+
+        Expected output format:
+            -------------------------PARSING-------------------------
+            3 processes, 4 stocks, 1 to optimize
+
+            Initial Stocks:
+            euro => 10
+
+            Process:
+            buy: {'euro': 8} -> {'material': 1} (delay: 10)
+
+            Optimization: ['time', 'happy_client']
+        """
+        SEPARATOR_WIDTH = 25
+        print(f"\n{SEPARATOR_WIDTH*'-'}PARSING{SEPARATOR_WIDTH*'-'}\n")
         print(f"{len(self.processes)} processes, {len(self.stocks)} stocks, {len(self.optimize)} to optimize")
 
-        print("\nStocks initiaux:")
+        print("\Initial Stocks:")
         for stock, qty in self.stocks.items():
             print(f"  {stock} => {qty}")
 
-        print("\nProcessus:")
+        print("\Process:")
         for process in self.processes:
             print(f"  {process.name}: {process.needs} -> {process.results} (délai: {process.delay})")
 
-        print(f"\nOptimisation: {self.optimize}")
+        print(f"\nOptimization: {self.optimize}")
