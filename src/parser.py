@@ -186,6 +186,8 @@ class KrpsimParser:
             resource_name = parts[0].strip()
             try:
                 quantity = int(parts[1].strip())
+                if quantity <= 0:
+                    raise ValueError(f"Quantity must be positive for {resource_name}: {parts[1]}")
                 resources[resource_name] = quantity
             except ValueError as e:
                 raise ValueError(f"Invalid quantity for {resource_name}: {parts[1]}") from e

@@ -115,7 +115,7 @@ class KrpsimSimulator:
         for resource, qty in process.results.items():
             self.current_stocks[resource] = self.current_stocks.get(resource, 0) + qty
 
-    def start_process(self, process: Process) -> None:
+    def start_process(self, process: Process, verbose: bool = True) -> None:
         """
         Start a process: consume its inputs, schedule its finish event, and log it.
 
@@ -132,7 +132,8 @@ class KrpsimSimulator:
         self.execution_log.append((self.current_time, process.name))
         self.process_count[process.name] += 1
 
-        print(f"{self.current_time}:{process.name}")
+        if verbose:
+            print(f"{self.current_time}:{process.name}")
 
     def finish_process(self, process_name: str) -> None:
         """
@@ -257,7 +258,7 @@ class KrpsimSimulator:
             while executable_processes:
                 process_to_start = self.choose_next_process(executable_processes)
                 if process_to_start:
-                    self.start_process(process_to_start)
+                    self.start_process(process_to_start, verbose)
                     executable_processes = self.find_executable_processes()
                 else:
                     break
