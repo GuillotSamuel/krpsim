@@ -41,9 +41,9 @@ re: fclean run
 
 help:
 	@echo "Usage:"
-	@echo "  make run   [FILE=resources/...] [DELAY=100]  -- lance krpsim"
-	@echo "  make test  [DELAY=100]                       -- lance krpsim sur toutes les ressources"
-	@echo "  make verif [FILE=resources/...] [TRACE=...]  -- verifie une trace"
-	@echo "  make clean                                    -- supprime les __pycache__"
-	@echo "  make fclean                                   -- clean + supprime la trace"
+	@echo "  make run   [FILE=resources/...] [DELAY=100]  -- launch "
+	@echo "  make test  [DELAY=100]                       -- launch krpsim with all  ressources"
+	@echo "  make verif [FILE=resources/...] [TRACE=...]  -- check a trace"
+	@echo "  make clean                                    -- remove all __pycache__"
+	@echo "  make fclean                                   -- clean + remove the trace"
 	@echo "  make re                                       -- fclean + run"
