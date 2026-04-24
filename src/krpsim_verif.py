@@ -1,11 +1,12 @@
 # src/krpsim_verif.py
 
 import sys
-from typing import List, Tuple, Dict
+
 from parser import KrpsimParser, Process
 
 class KrpsimVerifier:
-    """Verify a simulation trace against a krpsim configuration file.
+    """
+    Verify a simulation trace against a krpsim configuration file.
 
     Replays every (time, process) entry in the trace, checks resource
     availability at each step, and reports the final stock state.
@@ -22,7 +23,8 @@ class KrpsimVerifier:
     """
 
     def __init__(self, config_path: str, trace_path: str) -> None:
-        """Initialize the verifier with paths to the configuration and trace files.
+        """
+        Initialize the verifier with paths to the configuration and trace files.
 
         Args:
             config_path: Path to the krpsim configuration file.
@@ -31,13 +33,14 @@ class KrpsimVerifier:
         self.config_path = config_path
         self.trace_path = trace_path
         self.parser = KrpsimParser()
-        self.processes: Dict[str, Process] = {}
-        self.current_stocks: Dict[str, int] = {}
-        self.trace: List[Tuple[int, str]] = []
+        self.processes: dict[str, Process] = {}
+        self.current_stocks: dict[str, int] = {}
+        self.trace: list[tuple[int, str]] = []
         self.last_start_time = 0
 
     def parse(self) -> None:
-        """Parse the configuration file and load stocks and processes.
+        """
+        Parse the configuration file and load stocks and processes.
 
         Raises:
             RuntimeError: If the configuration file cannot be parsed.
@@ -48,7 +51,8 @@ class KrpsimVerifier:
         self.current_stocks = self.parser.stocks.copy()
 
     def load_trace(self) -> None:
-        """Load and parse the trace file into an ordered list of timed events.
+        """
+        Load and parse the trace file into an ordered list of timed events.
 
         Each non-empty line must follow the format 'time:process_name'.
         Lines that do not contain ':' are silently skipped.
@@ -69,7 +73,8 @@ class KrpsimVerifier:
                     )
 
     def can_execute_process(self, process: Process) -> bool:
-        """Check whether a process can be executed with the current stock.
+        """
+        Check whether a process can be executed with the current stock.
 
         Args:
             process: The process to evaluate.
@@ -83,7 +88,8 @@ class KrpsimVerifier:
         return True
 
     def consume_resources(self, process: Process) -> None:
-        """Deduct a process's required resources from the current stock.
+        """
+        Deduct a process's required resources from the current stock.
 
         Args:
             process: The process whose inputs will be consumed.
@@ -92,7 +98,8 @@ class KrpsimVerifier:
             self.current_stocks[res] -= qty
 
     def produce_resources(self, process: Process) -> None:
-        """Add a process's output resources to the current stock.
+        """
+        Add a process's output resources to the current stock.
 
         Args:
             process: The process whose outputs will be produced.
@@ -101,7 +108,8 @@ class KrpsimVerifier:
             self.current_stocks[res] = self.current_stocks.get(res, 0) + qty
 
     def verify(self) -> None:
-        """Replay the trace and validate every step against the configuration.
+        """
+        Replay the trace and validate every step against the configuration.
 
         For each entry in the trace the verifier checks:
           - The process name exists in the configuration.
@@ -112,7 +120,8 @@ class KrpsimVerifier:
             ValueError: If an unknown process is referenced or time goes backwards.
             RuntimeError: If a process cannot be executed due to insufficient resources.
         """
-        print(f"\n{'-' * 20} TRACE VERIFICATION {'-' * 20}")
+        separator_width = 20
+        print(f"\n{'-' * separator_width} TRACE VERIFICATION {'-' * separator_width}")
         last_finish_time = 0
         for cycle_time, process_name in self.trace:
             if process_name not in self.processes:
@@ -141,7 +150,32 @@ class KrpsimVerifier:
             print(f"  {res} => {qty}")
 
 def main() -> None:
-    """Entry point: parse arguments, load the trace, and run verification."""
+    """
+    Entry point of the krpsim verifier.
+
+    Parses command-line arguments, loads the configuration file and the
+    simulation trace, then replays the trace step by step to verify that
+    every process was executed with sufficient resources at the correct time.
+
+    Prints a verification report to stdout, including the final stock state
+    and the last simulation cycle. Exits with code 1 on any error.
+
+    Usage:
+        python krpsim_verif.py <config_file> <trace_file>
+
+    Args:
+        <config_file>: Path to the krpsim configuration file containing
+                       stock definitions, process descriptions, and the
+                       optimize directive.
+        <trace_file>:  Path to the trace file produced by krpsim, containing
+                       lines in the format 'time:process_name'.
+
+    Exits:
+        1 - if the wrong number of arguments is provided.
+        1 - if the configuration or trace file cannot be parsed.
+        1 - if the trace contains an unknown process, a time ordering
+            violation, or a resource availability error.
+    """
     if len(sys.argv) != 3:
         print("Usage: python krpsim_verif.py <config_file> <trace_file>")
         sys.exit(1)
@@ -151,7 +185,7 @@ def main() -> None:
         verifier.parse()
         verifier.load_trace()
         verifier.verify()
-    except (ValueError, RuntimeError) as e:
+    except (ValueError, RuntimeError, FileNotFoundError) as e:
         print(f"Error: {e}")
         sys.exit(1)
 

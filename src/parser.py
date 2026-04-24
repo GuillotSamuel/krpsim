@@ -78,28 +78,26 @@ class KrpsimParser:
         """
         try:
             with open(file_path, 'r') as file:
-                lines = file.readlines()
+                for line in file:
+                    line = line.strip()
 
-            for line in lines:
-                line = line.strip()
-
-                if not line or line.startswith('#'):
-                    continue
-
-                try:
-                    if ':' not in line:
+                    if not line or line.startswith('#'):
                         continue
 
-                    if line.startswith('optimize:'):
-                        self._parse_optimize_line(line)
-                    elif '(' in line and ')' in line:
-                        self._parse_process_line(line)
-                    else:
-                        self._parse_stock_line(line)
+                    try:
+                        if ':' not in line:
+                            continue
 
-                except Exception as e:
-                    print(f"Error parsing line '{line}': {e}")
-                    return False
+                        if line.startswith('optimize:'):
+                            self._parse_optimize_line(line)
+                        elif '(' in line and ')' in line:
+                            self._parse_process_line(line)
+                        else:
+                            self._parse_stock_line(line)
+
+                    except Exception as e:
+                        print(f"Error parsing line '{line}': {e}")
+                        return False
 
             return self._validate_parsed_data()
 
@@ -107,9 +105,6 @@ class KrpsimParser:
             print(f"Error: File '{file_path}' not found.")
             return False
         except (OSError, UnicodeDecodeError) as e:
-            print(f"Error while reading the file: {e}")
-            return False
-        except Exception as e:
             print(f"Error while reading the file: {e}")
             return False
 
@@ -192,8 +187,8 @@ class KrpsimParser:
             try:
                 quantity = int(parts[1].strip())
                 resources[resource_name] = quantity
-            except ValueError:
-                raise ValueError(f"Invalid quantity for {resource_name}: {parts[1]}")
+            except ValueError as e:
+                raise ValueError(f"Invalid quantity for {resource_name}: {parts[1]}") from e
 
         return resources
 
@@ -218,8 +213,8 @@ class KrpsimParser:
         try:
             quantity = int(parts[1].strip())
             self.stocks[stock_name] = quantity
-        except ValueError:
-            raise ValueError(f"Invalid quantity for {stock_name}: {parts[1]}")
+        except ValueError as e:
+            raise ValueError(f"Invalid quantity for {stock_name}: {parts[1]}") from e
 
     def _validate_parsed_data(self) -> bool:
         """
@@ -263,16 +258,16 @@ class KrpsimParser:
 
             Optimization: ['time', 'happy_client']
         """
-        SEPARATOR_WIDTH = 25
-        print(f"\n{SEPARATOR_WIDTH*'-'}PARSING{SEPARATOR_WIDTH*'-'}\n")
+        separator_width = 25
+        print(f"\n{separator_width*'-'}PARSING{separator_width*'-'}\n")
         print(f"{len(self.processes)} processes, {len(self.stocks)} stocks, {len(self.optimize)} to optimize")
 
-        print("\Initial Stocks:")
+        print("\nInitial Stocks:")
         for stock, qty in self.stocks.items():
             print(f"  {stock} => {qty}")
 
-        print("\Process:")
+        print("\nProcess:")
         for process in self.processes:
-            print(f"  {process.name}: {process.needs} -> {process.results} (délai: {process.delay})")
+            print(f"  {process.name}: {process.needs} -> {process.results} (delay: {process.delay})")
 
         print(f"\nOptimization: {self.optimize}")
