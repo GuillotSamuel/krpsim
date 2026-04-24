@@ -263,8 +263,8 @@ class KrpsimParser:
 
             Optimization: ['time', 'happy_client']
         """
-        SEPARATOR_WIDTH = 25
-        print(f"\n{SEPARATOR_WIDTH*'-'}PARSING{SEPARATOR_WIDTH*'-'}\n")
+        separator_width = 25
+        print(f"\n{separator_width*'-'}PARSING{separator_width*'-'}\n")
         print(f"{len(self.processes)} processes, {len(self.stocks)} stocks, {len(self.optimize)} to optimize")
 
         print("\Initial Stocks:")

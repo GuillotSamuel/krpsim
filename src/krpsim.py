@@ -3,13 +3,18 @@
 import sys
 import os
 import heapq
-from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
+
 from parser import Process, KrpsimParser
 
-@dataclass
+@dataclass(order=True, slots=True)
 class Event:
-    """Represent a scheduled simulation event stored in the event heap.
+    """
+    Represent a scheduled simulation event stored in the event heap.
+
+    order=True  — auto-generates __lt__, __le__, __gt__, __ge__ by field order.
+    slots=True  — replaces __dict__ with fixed-size slots, reducing memory
+                  footprint since Event is instantiated once per process execution.
 
     Attributes:
         time: The simulation time at which the event fires.
@@ -21,20 +26,10 @@ class Event:
     process_name: str
     action_type: str
 
-    def __lt__(self, other: "Event") -> bool:
-        """Compare events by time for min-heap ordering.
-
-        Args:
-            other: Another Event instance to compare against.
-
-        Returns:
-            True if this event occurs before the other event.
-        """
-        return self.time < other.time
-
 
 class KrpsimSimulator:
-    """Simulate the execution of resource-based processes over time.
+    """
+    Simulate the execution of resource-based processes over time.
 
     The simulator runs an event-driven loop: at each time step it resolves
     finished processes, greedily starts the best-scoring available process,
@@ -52,8 +47,9 @@ class KrpsimSimulator:
         process_count: Number of times each process has been started.
     """
 
-    def __init__(self, stocks: Dict[str, int], processes: List[Process], optimize: List[str]) -> None:
-        """Initialize the simulator with an initial state.
+    def __init__(self, stocks: dict[str, int], processes: list[Process], optimize: list[str]) -> None:
+        """
+        Initialize the simulator with an initial state.
 
         Args:
             stocks: Initial resource quantities keyed by resource name.
@@ -73,7 +69,8 @@ class KrpsimSimulator:
         self.process_count = {p.name: 0 for p in processes}
 
     def can_execute_process(self, process: Process) -> bool:
-        """Check whether a process can be started right now.
+        """
+        Check whether a process can be started right now.
 
         A process is executable if it is not already running and all required
         resources are available in sufficient quantities.
@@ -93,7 +90,8 @@ class KrpsimSimulator:
         return True
 
     def consume_resources(self, process: Process) -> None:
-        """Deduct a process's required resources from the current stock.
+        """
+        Deduct a process's required resources from the current stock.
 
         Args:
             process: The process whose needs will be consumed.
@@ -108,18 +106,18 @@ class KrpsimSimulator:
                 raise ValueError(f"Negative stock for {resource}: {self.current_stocks[resource]}")
 
     def produce_resources(self, process: Process) -> None:
-        """Add a process's output resources to the current stock.
+        """
+        Add a process's output resources to the current stock.
 
         Args:
             process: The process whose results will be produced.
         """
         for resource, qty in process.results.items():
-            if resource not in self.current_stocks:
-                self.current_stocks[resource] = 0
-            self.current_stocks[resource] += qty
+            self.current_stocks[resource] = self.current_stocks.get(resource, 0) + qty
 
     def start_process(self, process: Process) -> None:
-        """Start a process: consume its inputs, schedule its finish event, and log it.
+        """
+        Start a process: consume its inputs, schedule its finish event, and log it.
 
         Args:
             process: The process to start.
@@ -137,7 +135,8 @@ class KrpsimSimulator:
         print(f"{self.current_time}:{process.name}")
 
     def finish_process(self, process_name: str) -> None:
-        """Complete a process: produce its outputs and mark it as no longer running.
+        """
+        Complete a process: produce its outputs and mark it as no longer running.
 
         Args:
             process_name: Name of the process that has finished.
@@ -146,20 +145,18 @@ class KrpsimSimulator:
         self.produce_resources(process)
         self.running_processes.remove(process_name)
 
-    def find_executable_processes(self) -> List[Process]:
-        """Return all processes that can be started with the current stock.
+    def find_executable_processes(self) -> list[Process]:
+        """
+        Return all processes that can be started with the current stock.
 
         Returns:
             A list of Process objects that pass can_execute_process.
         """
-        executable = []
-        for process in self.processes.values():
-            if self.can_execute_process(process):
-                executable.append(process)
-        return executable
+        return [p for p in self.processes.values() if self.can_execute_process(p)]
 
-    def choose_next_process(self, executable_processes: List[Process]) -> Optional[Process]:
-        """Select the best process to run next using a gain-over-delay score.
+    def choose_next_process(self, executable_processes: list[Process]) -> Process | None:
+        """
+        Select the best process to run next using a gain-over-delay score.
 
         Each process is scored by the total quantity of optimized resources it
         produces divided by its delay. Processes with delay 0 that produce
@@ -175,7 +172,8 @@ class KrpsimSimulator:
             return None
 
         def process_score(p: Process) -> float:
-            """Compute the optimization score for a single process.
+            """
+            Compute the optimization score for a single process.
 
             Args:
                 p: The process to score.
@@ -195,22 +193,26 @@ class KrpsimSimulator:
         return max(executable_processes, key=process_score)
 
     def process_events_at_current_time(self) -> None:
-        """Drain and handle all finish events scheduled at the current time step."""
+        """
+        Drain and handle all finish events scheduled at the current time step.
+        """
         while self.events and self.events[0].time == self.current_time:
             event = heapq.heappop(self.events)
             if event.action_type == 'finish':
                 self.finish_process(event.process_name)
 
     def has_any_executable_process(self) -> bool:
-        """Check whether at least one process can be started right now.
+        """
+        Check whether at least one process can be started right now.
 
         Returns:
             True if one or more processes are currently executable.
         """
-        return len(self.find_executable_processes()) > 0
+        return any(self.can_execute_process(p) for p in self.processes.values())
 
     def advance_time(self) -> bool:
-        """Jump the clock forward to the time of the next scheduled event.
+        """
+        Jump the clock forward to the time of the next scheduled event.
 
         Returns:
             True if the clock was advanced, False if there are no pending events.
@@ -220,8 +222,9 @@ class KrpsimSimulator:
             return True
         return False
 
-    def simulate(self, max_time: int, verbose: bool = True) -> List[Tuple[int, str]]:
-        """Run the event-driven simulation up to max_time.
+    def simulate(self, max_time: int, verbose: bool = True) -> list[tuple[int, str]]:
+        """
+        Run the event-driven simulation up to max_time.
 
         At each time step the simulator:
           1. Resolves all finish events at the current time.
@@ -242,7 +245,8 @@ class KrpsimSimulator:
             print(f"\n{25*'-'}SIMULATION{25*'-'}\n")
 
         iteration_count = 0
-        max_iterations = max_time * 100
+        iteration_safety_factor = 100
+        max_iterations = max_time * iteration_safety_factor
 
         while self.current_time < max_time and iteration_count < max_iterations:
             iteration_count += 1
@@ -278,30 +282,32 @@ class KrpsimSimulator:
         return self.execution_log
 
     def display_final_state(self) -> None:
-        """Print the final quantity of every resource to stdout."""
-        print("\nStock :")
+        """
+        Print the final quantity of every resource to stdout.
+        """
+        print("\nStock(s) :")
         for stock_name, quantity in sorted(self.current_stocks.items()):
             print(f"  {stock_name} => {quantity}")
 
     def display_statistics(self) -> None:
-        """Print execution statistics including total time and per-process run counts."""
-        print(f"\nStatistics:")
+        """
+        Print execution statistics including total time and per-process run counts.
+        """
+        print("\nStatistics:")
         print(f"Total time: {self.current_time}")
-        print(f"Executed processes:")
+        print("Executed processes:")
         for process_name, count in self.process_count.items():
             if count > 0:
                 print(f"  {process_name}: {count} times")
 
     def get_trace_output(self) -> str:
-        """Serialize the execution log to the krpsim_verif trace format.
+        """
+        Serialize the execution log to the krpsim_verif trace format.
 
         Returns:
             A newline-separated string of 'time:process_name' entries.
         """
-        output_lines = []
-        for time, process_name in self.execution_log:
-            output_lines.append(f"{time}:{process_name}")
-        return '\n'.join(output_lines)
+        return '\n'.join(f"{time}:{name}" for time, name in self.execution_log)
 
 def main() -> None:
     """
@@ -331,7 +337,11 @@ def main() -> None:
         sys.exit(1)
 
     config_file_path = sys.argv[1]
-    delay = int(sys.argv[2])
+    try:
+        delay = int(sys.argv[2])
+    except ValueError:
+        print("Error: delay must be an integer.")
+        sys.exit(1)
 
     # Parse the configuration file into stocks, processes, and optimize targets
     parser = KrpsimParser()
@@ -343,15 +353,14 @@ def main() -> None:
 
     # Initialize the simulator with the parsed data and run it within the delay
     simulator = KrpsimSimulator(parser.stocks, parser.processes, parser.optimize)
-    execution_log = simulator.simulate(delay)
+    simulator.simulate(delay)
 
     # Print the final stock quantities after simulation ends
     simulator.display_final_state()
 
     # Write the execution trace to the traces folder so it can be verified later by krpsim_verif
     traces_folder = '../traces'
-    if not os.path.exists(traces_folder):
-        os.makedirs(traces_folder)
+    os.makedirs(traces_folder, exist_ok=True)
 
     with open(f'{traces_folder}/simulation_trace.txt', 'w') as f:
         f.write(simulator.get_trace_output())
