@@ -120,7 +120,8 @@ class KrpsimParser:
         Raises:
             ValueError: If the line does not match the expected format.
         """
-        match = re.search(r'optimize:\(([^)]+)\)', line)
+        
+        match = re.search(r'optimize:\(([^)]+)\)', line) # search → looks everywhere
         if not match:
             raise ValueError(f"Invalid optimization format: {line}")
 
@@ -140,7 +141,7 @@ class KrpsimParser:
             ValueError: If the line does not match the expected format.
         """
         pattern = r'^([^:]+):\(([^)]*)\):\(([^)]*)\):(\d+)$'
-        match = re.match(pattern, line)
+        match = re.match(pattern, line) # match → must start at the beginning
 
         if not match:
             raise ValueError(f"Invalid process format: {line}")

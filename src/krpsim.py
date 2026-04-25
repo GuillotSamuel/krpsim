@@ -84,8 +84,8 @@ class KrpsimSimulator:
         if process.name in self.running_processes:
             return False
 
-        for resource, needed_qty in process.needs.items():
-            if self.current_stocks.get(resource, 0) < needed_qty:
+        for resource, needed_qty in process.needs.items(): # .items() returns each key-value pair of the dict as a tuple (key, value)
+            if self.current_stocks.get(resource, 0) < needed_qty: # .get returns 0 if the resource is not in stocks instead of raising a KeyError
                 return False
         return True
 
@@ -195,9 +195,22 @@ class KrpsimSimulator:
 
     def process_events_at_current_time(self) -> None:
         """
-        Drain and handle all finish events scheduled at the current time step.
+        Drain and handle all events scheduled at the current simulation time.
+
+        Pops every event from the heap whose time matches current_time.
+        For each 'finish' event, calls finish_process() to produce the
+        process outputs and free it from the running set.
+
+        Multiple processes can finish at the same tick — this method
+        handles all of them before the scheduler looks for new ones to start.
+
+        Note:
+            The action_type check guards against future event types (e.g. 'start')
+            that may be added without breaking this drain loop.
         """
         while self.events and self.events[0].time == self.current_time:
+            # Pop the earliest event from the min-heap (O log n) — guaranteed to be at current_time
+            # since the while condition already checked self.events[0].time == self.current_time
             event = heapq.heappop(self.events)
             if event.action_type == 'finish':
                 self.finish_process(event.process_name)
@@ -218,8 +231,8 @@ class KrpsimSimulator:
         Returns:
             True if the clock was advanced, False if there are no pending events.
         """
-        if self.events:
-            self.current_time = self.events[0].time
+        if self.events: # Checks if the heap is not empty
+            self.current_time = self.events[0].time # Time of the next event
             return True
         return False
 
@@ -252,25 +265,31 @@ class KrpsimSimulator:
         while self.current_time < max_time and iteration_count < max_iterations:
             iteration_count += 1
 
+            # 1 - Resolve all finish events scheduled at the current tick
             self.process_events_at_current_time()
 
+            # 2 - Greedily start as many processes as possible
             executable_processes = self.find_executable_processes()
             while executable_processes:
                 process_to_start = self.choose_next_process(executable_processes)
                 if process_to_start:
                     self.start_process(process_to_start, verbose)
-                    executable_processes = self.find_executable_processes()
+                    executable_processes = self.find_executable_processes() # Recompute after each process start
                 else:
                     break
 
+            # 3 - If nothing is running and nothing can be started, the simulation is dead
             if not self.running_processes and not self.has_any_executable_process():
                 if verbose:
                     print(f"no more process doable at time {self.current_time}")
                 break
 
+            # 4 - Jump directly to the next event time instead of incrementing tick by tick
             if not self.advance_time():
                 break
 
+        # Final drain: resolve remaining events started before max_time
+        # but finishing after it, to ensure correct final stock values
         while self.events:
             event = heapq.heappop(self.events)
             self.current_time = event.time
@@ -354,7 +373,7 @@ def main() -> None:
 
     # Initialize the simulator with the parsed data and run it within the delay
     simulator = KrpsimSimulator(parser.stocks, parser.processes, parser.optimize)
-    simulator.simulate(delay)
+    simulator.simulate(max_time = delay, verbose = True)
 
     # Print the final stock quantities after simulation ends
     simulator.display_final_state()
