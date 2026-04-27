@@ -1,0 +1,12 @@
+#
+# infinite loop demo - krpsim
+#
+# stock
+token:1
+#
+# process: consumes 1 token, produces 2 → always more than it needs
+#
+loop:(token:1):(token:2):1
+#
+optimize:(token)
+#

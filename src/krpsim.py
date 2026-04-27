@@ -19,12 +19,10 @@ class Event:
     Attributes:
         time: The simulation time at which the event fires.
         process_name: Name of the process this event belongs to.
-        action_type: Either 'start' or 'finish' depending on the event kind.
     """
 
     time: int
     process_name: str
-    action_type: str
 
 
 class KrpsimSimulator:
@@ -126,7 +124,8 @@ class KrpsimSimulator:
         self.running_processes.add(process.name)
 
         finish_time = self.current_time + process.delay
-        finish_event = Event(finish_time, process.name, 'finish')
+        finish_event = Event(time = finish_time,
+                             process_name = process.name)
         heapq.heappush(self.events, finish_event)
 
         self.execution_log.append((self.current_time, process.name))
@@ -200,23 +199,17 @@ class KrpsimSimulator:
         """
         Drain and handle all events scheduled at the current simulation time.
 
-        Pops every event from the heap whose time matches current_time.
-        For each 'finish' event, calls finish_process() to produce the
-        process outputs and free it from the running set.
+        Pops every event from the heap whose time matches current_time
+        and calls finish_process() to produce outputs and free the running slot.
 
         Multiple processes can finish at the same tick — this method
         handles all of them before the scheduler looks for new ones to start.
-
-        Note:
-            The action_type check guards against future event types (e.g. 'start')
-            that may be added without breaking this drain loop.
         """
         while self.events and self.events[0].time == self.current_time:
             # Pop the earliest event from the min-heap (O log n) — guaranteed to be at current_time
             # since the while condition already checked self.events[0].time == self.current_time
             event = heapq.heappop(self.events)
-            if event.action_type == 'finish':
-                self.finish_process(event.process_name)
+            self.finish_process(event.process_name)
 
     def has_any_executable_process(self) -> bool:
         """
@@ -296,8 +289,7 @@ class KrpsimSimulator:
         while self.events:
             event = heapq.heappop(self.events)
             self.current_time = event.time
-            if event.action_type == 'finish':
-                self.finish_process(event.process_name)
+            self.finish_process(event.process_name)
 
         if iteration_count >= max_iterations:
             print(f"Simulation stopped after {max_iterations} iterations (infinite loop protection)")

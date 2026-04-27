@@ -9,6 +9,8 @@ RESOURCES	= resources/simple resources/farm resources/ikea \
 
 DELAY		?= 100
 FILE		?= resources/simple
+INIFITE		?= resources/infinite
+SUSTAINED   ?= resources/sustained
 
 .PHONY: all run test verif clean fclean re help
 
@@ -17,6 +19,14 @@ all: run
 run:
 	@echo "==> krpsim: $(FILE) (delay=$(DELAY))"
 	@cd src && $(PYTHON) krpsim.py ../$(FILE) $(DELAY)
+
+infinite:
+	@echo "==> krpsim infinite: $(FILE) (delay=$(DELAY))"
+	@cd src && $(PYTHON) krpsim.py ../$(INIFITE) $(DELAY)
+
+sustained:
+	@echo "==> krpsim sustained: $(FILE) (delay=$(DELAY))"
+	@cd src && $(PYTHON) krpsim.py ../$(SUSTAINED) $(DELAY)
 
 test:
 	@for f in $(RESOURCES); do \

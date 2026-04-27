@@ -1,0 +1,19 @@
+#
+# sustained demo - krpsim
+#
+# Two-process self-sustaining cycle:
+#
+#   mine   : consumes 1 ore,  produces 2 ore + 1 gem  (net: +1 ore/cycle)
+#   craft  : consumes 2 gems, produces 1 jewel + 1 ore (net: uses gems, returns ore)
+#
+# The loop never starves: mine always regenerates more ore than it consumes.
+# Stop condition: max_time (passed as CLI delay argument).
+# Expected result: jewel count in final stocks proves the cycle ran many times.
+#
+ore:4
+#
+mine:(ore:1):(ore:2;gem:1):2
+craft:(gem:2):(jewel:1;ore:1):3
+#
+optimize:(jewel)
+#
