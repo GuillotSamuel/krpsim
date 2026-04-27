@@ -183,13 +183,16 @@ class KrpsimSimulator:
                 A float representing gain per time unit toward the optimize targets.
             """
             gain = sum(
-                qty for res, qty in p.results.items()
-                if res in self.optimize_criteria
-            )
-            if p.delay == 0:
-                return float('inf') if gain > 0 else 0
+                qty for res, qty in p.results.items()  # iterate over each (resource, quantity) the process produces
+                if res in self.optimize_criteria        # keep only resources listed in the optimize directive
+            )                                          # gain = total units produced toward optimization targets
+            if 'time' in self.optimize_criteria:       # if minimizing time is a goal
+                time_bonus = 1.0 / (p.delay + 1)      # faster processes get a higher bonus (+1 avoids division by zero)
+                gain += time_bonus                     # add the time bonus to the raw resource gain
+            if p.delay == 0:                           # instant process: avoid division by zero
+                return float('inf') if gain > 0 else 0 # infinite score if it produces something useful, else 0
 
-            return gain / p.delay
+            return gain / p.delay                      # score = gain per time unit (higher is better)
 
         return max(executable_processes, key=process_score)
 
