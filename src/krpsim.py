@@ -259,7 +259,7 @@ class KrpsimSimulator:
             print(f"\n{25*'-'}SIMULATION{25*'-'}\n")
 
         iteration_count = 0
-        iteration_safety_factor = 100
+        iteration_safety_factor = 1000
         max_iterations = max_time * iteration_safety_factor
 
         while self.current_time < max_time and iteration_count < max_iterations:
