@@ -116,13 +116,21 @@ class KrpsimVerifier:
           - Time is monotonically non-decreasing.
           - All required resources are available before the process starts.
 
+        Resources are consumed at start time and produced at start + delay,
+        matching the simulator's event-driven behaviour and supporting parallel
+        processes that run concurrently.
+
         Raises:
             ValueError: If an unknown process is referenced or time goes backwards.
             RuntimeError: If a process cannot be executed due to insufficient resources.
         """
         separator_width = 20
         print(f"\n{'-' * separator_width} TRACE VERIFICATION {'-' * separator_width}")
+
+        # pending: list of (finish_time, process) for processes that have started but not yet produced
+        pending: list[tuple[int, Process]] = []
         last_finish_time = 0
+
         for cycle_time, process_name in self.trace:
             if process_name not in self.processes:
                 raise ValueError(f"Unknown process '{process_name}' at time {cycle_time}")
@@ -130,9 +138,18 @@ class KrpsimVerifier:
             if cycle_time < self.last_start_time:
                 raise ValueError(f"Non-monotonic time: {cycle_time} after {self.last_start_time}")
 
+            # Produce resources from all processes that finished at or before cycle_time
+            remaining = []
+            for finish_time, finished_process in sorted(pending, key=lambda x: x[0]):
+                if finish_time <= cycle_time:
+                    self.produce_resources(finished_process)
+                    last_finish_time = max(last_finish_time, finish_time)
+                else:
+                    remaining.append((finish_time, finished_process))
+            pending = remaining
+
             process = self.processes[process_name]
             self.last_start_time = cycle_time
-            last_finish_time = max(last_finish_time, cycle_time + process.delay)
 
             if not self.can_execute_process(process):
                 raise RuntimeError(
@@ -141,7 +158,12 @@ class KrpsimVerifier:
                 )
 
             self.consume_resources(process)
-            self.produce_resources(process)
+            pending.append((cycle_time + process.delay, process))
+
+        # Drain all remaining pending finishes after the last trace entry
+        for finish_time, finished_process in sorted(pending, key=lambda x: x[0]):
+            self.produce_resources(finished_process)
+            last_finish_time = max(last_finish_time, finish_time)
 
         print("Trace is valid.")
         print(f"\nFinal cycle: {last_finish_time}")

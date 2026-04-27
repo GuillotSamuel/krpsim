@@ -6,6 +6,7 @@ import heapq
 from dataclasses import dataclass
 
 from parser import Process, KrpsimParser
+from config import PARALLEL_MODE, MAX_PARALLEL, TICK_MODE
 
 @dataclass(order=True, slots=True)
 class Event:
@@ -45,13 +46,6 @@ class KrpsimSimulator:
         process_count: Number of times each process has been started.
     """
 
-    # Parallel execution modes:
-    #   "unlimited"  — no restriction, any number of instances can run simultaneously
-    #   "per_tick"   — each process can be started at most max_parallel times per scheduling round
-    #   "concurrent" — each process can have at most max_parallel instances running at the same time
-    PARALLEL_MODE: str = "per_tick"
-    MAX_PARALLEL:  int = 1
-
     def __init__(self, stocks: dict[str, int], processes: list[Process], optimize: list[str]) -> None:
         """
         Initialize the simulator with an initial state.
@@ -87,8 +81,8 @@ class KrpsimSimulator:
         Returns:
             True if the process can be started, False otherwise.
         """
-        if self.PARALLEL_MODE == "concurrent":
-            if self.running_processes.get(process.name, 0) >= self.MAX_PARALLEL:
+        if PARALLEL_MODE == "concurrent":
+            if self.running_processes.get(process.name, 0) >= MAX_PARALLEL:
                 return False  # already at the concurrent instance cap for this process
 
         for resource, needed_qty in process.needs.items(): # .items() returns each key-value pair of the dict as a tuple (key, value)
@@ -238,8 +232,12 @@ class KrpsimSimulator:
         Returns:
             True if the clock was advanced, False if there are no pending events.
         """
-        if self.events: # Checks if the heap is not empty
-            self.current_time = self.events[0].time # Time of the next event
+        if TICK_MODE == "process_end":
+            if self.events: # Checks if the heap is not empty
+                self.current_time = self.events[0].time # Time of the next event
+                return True
+        if TICK_MODE == "+1":
+            self.current_time +=1
             return True
         return False
 
@@ -283,11 +281,11 @@ class KrpsimSimulator:
                 if not process_to_start:
                     break
                 self.start_process(process_to_start, verbose)
-                if self.PARALLEL_MODE == "per_tick":
+                if PARALLEL_MODE == "per_tick":
                     started_this_tick[process_to_start.name] = started_this_tick.get(process_to_start.name, 0) + 1
                 executable_processes = [
                     p for p in self.find_executable_processes()
-                    if self.PARALLEL_MODE != "per_tick" or started_this_tick.get(p.name, 0) < self.MAX_PARALLEL
+                    if PARALLEL_MODE != "per_tick" or started_this_tick.get(p.name, 0) < MAX_PARALLEL
                 ]
 
             # 3 - If nothing is running and nothing can be started, the simulation is dead
