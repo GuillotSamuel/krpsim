@@ -45,6 +45,13 @@ class KrpsimSimulator:
         process_count: Number of times each process has been started.
     """
 
+    # Parallel execution modes:
+    #   "unlimited"  — no restriction, any number of instances can run simultaneously
+    #   "per_tick"   — each process can be started at most max_parallel times per scheduling round
+    #   "concurrent" — each process can have at most max_parallel instances running at the same time
+    PARALLEL_MODE: str = "per_tick"
+    MAX_PARALLEL:  int = 1
+
     def __init__(self, stocks: dict[str, int], processes: list[Process], optimize: list[str]) -> None:
         """
         Initialize the simulator with an initial state.
@@ -62,7 +69,7 @@ class KrpsimSimulator:
         self.current_time = 0
         self.events = []
         self.execution_log = []
-        self.running_processes = set()
+        self.running_processes = {}  # process_name -> number of instances currently running
 
         self.process_count = {p.name: 0 for p in processes}
 
@@ -70,8 +77,9 @@ class KrpsimSimulator:
         """
         Check whether a process can be started right now.
 
-        A process is executable if it is not already running and all required
-        resources are available in sufficient quantities.
+        A process is executable if all required resources are available in
+        sufficient quantities. Multiple instances of the same process can run
+        in parallel as long as the stocks allow it.
 
         Args:
             process: The process to evaluate.
@@ -79,8 +87,9 @@ class KrpsimSimulator:
         Returns:
             True if the process can be started, False otherwise.
         """
-        if process.name in self.running_processes:
-            return False
+        if self.PARALLEL_MODE == "concurrent":
+            if self.running_processes.get(process.name, 0) >= self.MAX_PARALLEL:
+                return False  # already at the concurrent instance cap for this process
 
         for resource, needed_qty in process.needs.items(): # .items() returns each key-value pair of the dict as a tuple (key, value)
             if self.current_stocks.get(resource, 0) < needed_qty: # .get returns 0 if the resource is not in stocks instead of raising a KeyError
@@ -121,7 +130,7 @@ class KrpsimSimulator:
             process: The process to start.
         """
         self.consume_resources(process)
-        self.running_processes.add(process.name)
+        self.running_processes[process.name] = self.running_processes.get(process.name, 0) + 1
 
         finish_time = self.current_time + process.delay
         finish_event = Event(time = finish_time,
@@ -143,7 +152,9 @@ class KrpsimSimulator:
         """
         process = self.processes[process_name]
         self.produce_resources(process)
-        self.running_processes.remove(process_name)
+        self.running_processes[process_name] -= 1
+        if self.running_processes[process_name] == 0:
+            del self.running_processes[process_name]
 
     def find_executable_processes(self) -> list[Process]:
         """
@@ -265,14 +276,19 @@ class KrpsimSimulator:
             self.process_events_at_current_time()
 
             # 2 - Greedily start as many processes as possible
+            started_this_tick = {}  # process_name -> times started in this scheduling round
             executable_processes = self.find_executable_processes()
             while executable_processes:
                 process_to_start = self.choose_next_process(executable_processes)
-                if process_to_start:
-                    self.start_process(process_to_start, verbose)
-                    executable_processes = self.find_executable_processes() # Recompute after each process start
-                else:
+                if not process_to_start:
                     break
+                self.start_process(process_to_start, verbose)
+                if self.PARALLEL_MODE == "per_tick":
+                    started_this_tick[process_to_start.name] = started_this_tick.get(process_to_start.name, 0) + 1
+                executable_processes = [
+                    p for p in self.find_executable_processes()
+                    if self.PARALLEL_MODE != "per_tick" or started_this_tick.get(p.name, 0) < self.MAX_PARALLEL
+                ]
 
             # 3 - If nothing is running and nothing can be started, the simulation is dead
             if not self.running_processes and not self.has_any_executable_process():
