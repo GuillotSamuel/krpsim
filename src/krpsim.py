@@ -87,7 +87,7 @@ class KrpsimSimulator:
             res = p.results.get(self.opt_for, 0)
             if(res > 0):
                 self.final_processes.append(p)
-        self.final_processes.sort(key=lambda p: p.results.get(self.opt_for, 0), reverse=True)
+                print(processes) if self.processes == processes else print("**********not the same *********\n",processes,"\n\n\n", self.processes, "\n\n\n", self.final_processes)
         
 
     def can_execute_process(self, process: Process) -> bool:
@@ -173,25 +173,25 @@ class KrpsimSimulator:
         if self.running_processes[process_name] == 0:
             del self.running_processes[process_name]
 
-    def find_executable_processes(self) -> list[Process]:
+    def find_executable_processes(self, proc_count) -> list[Process]:
         """
         Return all processes that can be started with the current stock.
 
         Returns:
             A list of Process objects that pass can_execute_process.
         """
-        return [p for p in self.processes.values() if self.can_execute_process(p)]
+        return [p for p in self.processes.values() if self.can_execute_process(p) and p.name in proc_count and proc_count[p.name] > 0]
 
-    def choose_next_process(self, executable_processes: list[Process], proc_count: dict) -> Process | None:
+    def choose_next_process(self, executable_processes: list[Process]) -> Process | None:
         """
-        Select the best process to run next.
+        Select the best process to run next using a gain-over-delay score.
 
-        Planned processes (those still in proc_count) are always preferred over
-        unplanned ones. Within each group, processes are ranked by gain-over-delay.
+        Each process is scored by the total quantity of optimized resources it
+        produces divided by its delay. Processes with delay 0 that produce
+        optimized resources receive an infinite score and are always preferred.
 
         Args:
             executable_processes: List of processes eligible for execution.
-            proc_count: Remaining planned runs per process from find_best_combination.
 
         Returns:
             The process with the highest score, or None if the list is empty.
@@ -200,6 +200,15 @@ class KrpsimSimulator:
             return None
 
         def process_score(p: Process) -> float:
+            """
+            Compute the optimization score for a single process.
+
+            Args:
+                p: The process to score.
+
+            Returns:
+                A float representing gain per time unit toward the optimize targets.
+            """
             gain = sum(
                 qty for res, qty in p.results.items()  # iterate over each (resource, quantity) the process produces
                 if res in self.optimize_criteria        # keep only resources listed in the optimize directive
@@ -209,30 +218,10 @@ class KrpsimSimulator:
                 gain += time_bonus                     # add the time bonus to the raw resource gain
             if p.delay == 0:                           # instant process: avoid division by zero
                 return float('inf') if gain > 0 else 0 # infinite score if it produces something useful, else 0
-            return gain
 
-        # prefer planned processes first
-        planned = [p for p in executable_processes if proc_count.get(p.name, 0) > 0]
-        if planned:
-            return max(planned, key=process_score)
+            return gain                    # score = gain per time unit (higher is better)
 
-        # no plan exists (recomputed from current stocks found nothing feasible) — stop scheduling
-        if not proc_count:
-            return None
-
-        # fallback: only allow unplanned processes that don't compete for resources needed by the plan
-        plan_needed = {
-            resource
-            for name, count in proc_count.items()
-            if count > 0
-            for resource in self.processes[name].needs
-        }
-        safe = [p for p in executable_processes if not any(r in plan_needed for r in p.needs)]
-        if safe:
-            return max(safe, key=process_score)
-
-        # nothing safe to run — wait for planned resources to become available
-        return None
+        return max(executable_processes, key=process_score)
 
     def process_events_at_current_time(self) -> None:
         """
@@ -297,41 +286,35 @@ class KrpsimSimulator:
         if verbose:
             print(f"\n{25*'-'}SIMULATION{25*'-'}\n")
             
-        try:
-            proc_count, _, _ = self.find_best_combination(self.initial_stocks)
-            if proc_count is None:
-                proc_count = {}
-        except Exception:
-            proc_count = {}
+        proc_count, raw_needs, value = self.find_best_combination(self.initial_stocks)
+
+        print(proc_count)
+        print(raw_needs)
+        print("best value:", value)
 
         iteration_count = 0
         iteration_safety_factor = 1000
         max_iterations = max_time * iteration_safety_factor
 
-        while self.current_time <= max_time and iteration_count < max_iterations:
+        while self.current_time < max_time and iteration_count < max_iterations:
             iteration_count += 1
 
             # 1 - Resolve all finish events scheduled at the current tick
             self.process_events_at_current_time()
 
-            # Recompute plan from current stocks after each event resolution
-            new_pc, _, _ = self.find_best_combination(self.current_stocks)
-            proc_count = new_pc if new_pc else {}
-
             # 2 - Greedily start as many processes as possible
             started_this_tick = {}  # process_name -> times started in this scheduling round
-            executable_processes = self.find_executable_processes()
+            executable_processes = self.find_executable_processes(proc_count)
             while executable_processes:
-                process_to_start = self.choose_next_process(executable_processes, proc_count)
+                process_to_start = self.choose_next_process(executable_processes)
                 if not process_to_start:
                     break
                 self.start_process(process_to_start, verbose)
-                if proc_count.get(process_to_start.name, 0) > 0:
-                    proc_count[process_to_start.name] -= 1
+                proc_count[process_to_start.name] -= 1
                 if PARALLEL_MODE == "per_tick":
                     started_this_tick[process_to_start.name] = started_this_tick.get(process_to_start.name, 0) + 1
                 executable_processes = [
-                    p for p in self.find_executable_processes()
+                    p for p in self.find_executable_processes(proc_count)
                     if PARALLEL_MODE != "per_tick" or started_this_tick.get(p.name, 0) < MAX_PARALLEL
                 ]
 
@@ -404,10 +387,6 @@ class KrpsimSimulator:
         for resource, qty in process.needs.items():
             total_needed = qty * times
 
-            # skip tool resources — returned in full by this process AND present in initial stock
-            if process.results.get(resource, 0) >= qty and resource in self.initial_stocks:
-                continue
-
             # ✅ BREAK CYCLE: use available stock first
             if stocks.get(resource, 0) >= total_needed:
                 raw_needs[resource] += total_needed
@@ -455,11 +434,8 @@ class KrpsimSimulator:
                     return False
             return True
 
-        def dfs(stocks, proc_count, raw_needs, depth=0):
+        def dfs(stocks, proc_count, raw_needs):
             nonlocal best_value, best_proc_count, best_raw_needs
-
-            if depth > 500:
-                return
 
             # current score
             value = stocks.get(self.opt_for, 0)
@@ -503,7 +479,7 @@ class KrpsimSimulator:
                     updated_raw[k] += v
 
                 # recurse
-                dfs(new_stocks, updated_proc_count, updated_raw, depth + 1)
+                dfs(new_stocks, updated_proc_count, updated_raw)
 
         dfs(copy.deepcopy(stocks), defaultdict(int), defaultdict(int))
 
