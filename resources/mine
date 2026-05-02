@@ -6,10 +6,10 @@
 # The scheduler must balance iron vs gold extraction to maximize coins.
 #
 # stock      name:quantity
-coal:80
+coal:40
 iron_ore:24
 gold_ore:9
-pickaxe:1
+pickaxe:3
 #
 # process   name:(need1:qty1;need2:qty2;[...]):(result1:qty1;result2:qty2;[...]):delay
 #
@@ -24,7 +24,7 @@ craft_ring:(gold_ingot:2;iron_ingot:1):(ring:1):4
 #
 # Selling
 sell_sword:(sword:1):(coins:80):1
-sell_shield:(shield:1):(coins:350):1
+sell_shield:(shield:1):(coins:140):1
 sell_ring:(ring:1):(coins:350):1
 #
 # optimize time for no process possible,
