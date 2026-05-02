@@ -66,6 +66,62 @@ class KrpsimSimulator:
         self.running_processes = {}  # process_name -> number of instances currently running
 
         self.process_count = {p.name: 0 for p in processes}
+        self._resource_values = self._compute_resource_values()
+
+        # Total net consumption of each resource across all processes (used for stock saturation).
+        # When stock of a resource already exceeds total demand, producing more of it is worthless.
+        self._total_demand: dict[str, int] = {}
+        for p in processes:
+            for r, qty in p.needs.items():
+                net = qty - p.results.get(r, 0)
+                if net > 0:
+                    self._total_demand[r] = self._total_demand.get(r, 0) + net
+
+    def _compute_resource_values(self) -> dict[str, float]:
+        """
+        Propagate optimize-target value backwards through the process graph
+        using a Dijkstra-style traversal.
+
+        Optimize targets are seeded at 1.0 and each resource is finalised at
+        most once (highest-value first).  This guarantees finite results even
+        for cyclic graphs (e.g. separation_oeuf ↔ reunion_oeuf) because a
+        resource that has already been visited is never updated again, so
+        values cannot amplify around a loop.
+
+        Net quantities (results minus needs) are used so that pass-through
+        resources (consumed and returned unchanged, e.g. four, truck) do not
+        inherit inflated values.
+        """
+        values: dict[str, float] = {r: 1.0 for r in self.optimize_criteria if r != 'time'}
+        visited: set[str] = set()
+        heap = [(-v, r) for r, v in values.items()]
+        heapq.heapify(heap)
+
+        while heap:
+            neg_val, resource = heapq.heappop(heap)
+            if resource in visited:
+                continue
+            visited.add(resource)
+
+            for p in self.processes.values():
+                net_produced = {r: qty - p.needs.get(r, 0) for r, qty in p.results.items()
+                                if qty > p.needs.get(r, 0)}
+                if resource not in net_produced:
+                    continue
+                output_value = sum(values.get(r, 0.0) * qty for r, qty in net_produced.items())
+                if output_value <= 0:
+                    continue
+                net_consumed = {r: qty - p.results.get(r, 0) for r, qty in p.needs.items()
+                                if qty > p.results.get(r, 0)}
+                for r, qty in net_consumed.items():
+                    if r in visited or r in self.optimize_criteria:
+                        continue
+                    derived = output_value / qty
+                    if derived > values.get(r, 0.0):
+                        values[r] = derived
+                        heapq.heappush(heap, (-derived, r))
+
+        return values
 
     def can_execute_process(self, process: Process) -> bool:
         """
@@ -186,10 +242,23 @@ class KrpsimSimulator:
             Returns:
                 A float representing gain per time unit toward the optimize targets.
             """
-            gain = sum(
-                qty for res, qty in p.results.items()  # iterate over each (resource, quantity) the process produces
-                if res in self.optimize_criteria        # keep only resources listed in the optimize directive
-            )                                          # gain = total units produced toward optimization targets
+            gain = 0.0
+            for res, qty in p.results.items():
+                res_value = self._resource_values.get(res, 0.0)
+                if res_value <= 0.0:
+                    continue
+                # Stock saturation: linearly reduce score as stock fills up to total demand.
+                # At stock >= demand the factor hits 0 — hard cutoff.
+                # Optimize targets are exempt: we always want more of those.
+                if res not in self.optimize_criteria:
+                    demand = self._total_demand.get(res, 0)
+                    if demand == 0:
+                        continue  # nothing ever consumes this resource; no point producing it
+                    stock = self.current_stocks.get(res, 0)
+                    if stock >= demand:
+                        continue  # hard cutoff: already have at least one full "round" worth
+                    res_value *= (demand - stock) / demand
+                gain += res_value * qty
             if 'time' in self.optimize_criteria:       # if minimizing time is a goal
                 time_bonus = 1.0 / (p.delay + 1)      # faster processes get a higher bonus (+1 avoids division by zero)
                 gain += time_bonus                     # add the time bonus to the raw resource gain
@@ -198,7 +267,10 @@ class KrpsimSimulator:
 
             return gain / p.delay                      # score = gain per time unit (higher is better)
 
-        return max(executable_processes, key=process_score)
+        best = max(executable_processes, key=process_score)
+        if process_score(best) <= 0:
+            return None  # all runnable processes are saturated; wait for something to finish
+        return best
 
     def process_events_at_current_time(self) -> None:
         """

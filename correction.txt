@@ -1,0 +1,204 @@
+notifications See all notifications
+42
+search...
+31
+frthierr
+Manage slots
+Settings
+Logout
+Have a problem?
+Profile
+Projets
+E-learning
+Forum
+Companies
+Meta
+Shop
+Menu
+My projects Holy Graph List projects Available Cursus
+Your projects
+[DEPRECATED] Python Module 00 ft_ssl_md5 rt
+Scale for project krpsim
+You should evaluate 2 students in this team
+Git repository
+git@vogsphere.42paris.fr:vogsphere/intra-uuid-531ceed7-d838-40d8-95e8-d2533271eec7-7393502-ajamshid
+Guidelines
+
+Ceci est le barème du KrpSim. Merci de garder en mémoire que
+peu d'affichages demandent un formatage précis. Le but premier du
+projet est l'optimisation des ressources, donc l'efficacité de
+votre programme. Sur un même fichier de description des processus,
+il peut être normal que le programme ne réponde pas
+systématiquement la même chose quand on le lance plusieurs fois.
+On ne demande pas quelque chose de forcément déterministe.
+
+Attachments
+subject.pdf
+resources.tgz
+Préliminaires
+La base
+
+On regarde les contraintes de base :
+
+le groupe est complet a l'heure
+le groupe git clone le rendu complet
+les 3 éléments demandés sont présents : le programme krpsim, le programme krpsim_verif, au moins un fichier de processus de votre cru (plusieurs c'est même mieux) Si c'est pas ok, la notation s'arrete la.
+ Yes  No
+La lib-qui-fait-tout
+
+On contrôle qu'il n'y a pas de module/librairie(/...) qui fait
+le boulot d'optimisation a votre place. Les point apportés par
+ce projet témoignent du temps passé à réfléchir par vous
+même sur ces questions, et y trouver + implémenter vos propres
+solutions. Ce n'est pas un projet d'intégration. Si il y a un
+élément externe qui résout le problème, la notation
+s'arrête la, et le groupe retry en faisant vraiment le projet
+cette fois-ci.
+
+ Yes  No
+Les tests simples
+Simple
+
+On utilise un test simple, idéalement "simple" fournit avec les
+ressources, mais d'autres tests du même genre, c'est bien
+aussi. Il s'agit d'une chaine simple, avec un stock au début
+qui est consommé et qui déclenche les processus les uns après
+les autres. Est-ce que krpsim arrive bien au bout de la chaine
+de processus ? A chaque fois ? Pour tous les tests, gardez en
+tête que un délai court donnera moins de chance d'optimiser ou
+d'arriver à l'objectif. Au contraire, un délai plus long
+devrait permettre d'atteindre l'objectif (que cela soit un
+résultat précis ou la meilleure optimisation) plus souvent.
+Vous pouvez tester avec le krpsim_verif, mais pour ces tests
+simples cela ne devrait pas être vraiment nécessaire. Vos
+propres fichiers de description de processus doivent être,
+selon leur nature et difficulté, être utilisés sur les
+sections/questions qui leur correspondent le mieux.
+
+ Yes  No
+Simple, le retour
+
+Toujours avec le même fichier de processus, arrive-t-on a la
+fin dans le temps minimum ? A chaque fois ? Le temps minimum
+doit être logiquement la simple addition des durées de chaque
+process (puisqu'il s'agit d'une simple chaine de processus).
+
+ Yes  No
+Ikea
+
+Testons maintenant avec une configuration de type Ikea. Encore
+une fois c'est mieux si il n'y a pas que le fichier ikea. Le
+but est ici de devoir répéter et / ou paralléliser certaines
+actions pour arriver a l'objectif. Le stock doit alors être
+utilisé judicieusement pour obtenir tout ce qui est
+nécessaire. Il n'y a que 2 étages de processus (tous les
+chemins possibles des stock de départ jusqu'au stock
+d'arrivée, ne contiennent que 2 processus) Obtient-on le
+résultat a chaque fois ? (ou quasiment, et selon le délai,
+toujours le même topo)
+
+ Yes  No
+Ikea, lui aussi, le retour
+
+Le temps utilisé pour arriver au but de Ikea (ou tout autre
+fichier du même type) est-il optimisé ? => ikea se fait en 50
+cycles par ex.
+
+ Yes  No
+Plus compliqué
+
+Cette fois-ci, testez une configuration simple qui contient au
+moins une branche morte, qui consomme une ressource (et réduit
+la production du but ou l'empêche). Ca fonctionne ? on arrive
+au but a peu près à chaque fois ?
+
+ Yes  No
+Tu veux du steak ?
+
+Testez le fichier steak. Si votre krpsim est bon, il cuit le
+tout en 30 sec a chaque fois.
+
+ Yes  No
+Les controles d'erreur
+erreurs de syntaxe
+
+Un fichier avec des process/stock/optim mal formés : ca affiche
+une erreur a chaque fois.
+
+ Yes  No
+Parties manquantes
+
+Il manque des parties dans le fichier de description des
+processus ?
+
+ Yes  No
+krpsim_verif
+
+Contrôlez que le programme krpsim_verif affiche une erreur
+lorsque le format du fichier transmis n'est pas bon. Contrôlez
+également que krpsim_verif affiche une erreur lorsque le
+fichier transmis contient une action non possible compte tenu de
+l'état des stock au cycle en question. Enfin, que krpsim_verif
+indique que tout est OK si c'est bien le cas avec une trace
+donnée.
+
+ Yes  No
+Les process ouverts
+non-stop
+
+Testez la configuration "recre", ou tout autre fichier de
+processus assez simple qui doit s'auto-entretenir. Il doit y
+avoir des situations bloquantes possibles, des moments ou plus
+aucun process ne peut être exécuté, mais que votre krpsim
+doit savoir éviter (comme toujours, plus on lui laisse du
+temps, mieux il va optimiser le but et éviter les blocages).
+
+ Yes  No
+Rendement
+
+En jouant avec le délai accordé au programme, le rendement
+s'améliore-t-il ? (si le groupe peut expliquer que le
+rendement est toujours optimal et qu'il n'est pas possible de
+faire mieux, c'est ok aussi).
+
+ Yes  No
+Plus gros
+
+Testez avec "pomme" ou tout autre description complexe des
+processus, incluant des branches mortes, des boucles (comme avec
+les oeufs), des situations de blocage possible... bref tout un
+tas de difficultés :) Contrôlez avec le vérificateur.
+
+ Yes  No
+Bonus
+Rendement
+
+Si vous avez déjà fait le projet, utilisez par ex. votre
+propre krpsim pour comparer les performances. Voici également
+un échelle possible de rendement pour pomme au bout de 50000
+cycles :
+
+moins de 50 000 euros (aucune boite vendue) : 0pt
+jusqu'a 100 000 euros
+jusqu'a 200 000 euros
+jusqu'a 500 000 euros
+jusqu'a 1M euros
+au delà d'1M euros : 5pt Cette échelle est susceptible de changer au fur et a mesure que les rendus affinent ce qu'il est possible de faire.
+Rate it from 0 (failed) through 5 (excellent)
+
+Ratings
+Don’t forget to check the flag corresponding to the defense
+
+Ok Outstanding project
+Empty work No author file Invalid compilation Norme Cheat Crash Incomplete group Forbidden function
+Conclusion
+Flag
+OkInvalid compilationNormeCheatCrashIncomplete groupOutstanding projectForbidden FunctionEmpty workNo author file
+Leave a comment on this evaluation ( 2048 chars max )
+
+API General Terms of UseDeclaration on the use of cookiesPrivacy policyGeneral term of use of the siteInternal RulesTerms of use for video surveillanceLegal notices
+x
+Cancel Send
+x
+Flash modal content (raw)
+Close
