@@ -12,120 +12,6 @@ from collections import defaultdict
 import math
 import copy
 
-def compute_plan(process, producers, times, stocks,
-                proc_count=None, raw_needs=None, visiting=None):
-
-    if proc_count is None:
-        proc_count = defaultdict(int)
-    if raw_needs is None:
-        raw_needs = defaultdict(int)
-    if visiting is None:
-        visiting = set()
-
-    # 🔒 cycle guard
-    if process.name in visiting:
-        return proc_count, raw_needs
-
-    visiting.add(process.name)
-    proc_count[process.name] += times
-
-    for resource, qty in process.needs.items():
-        total_needed = qty * times
-
-        # ✅ BREAK CYCLE: use available stock first
-        if stocks.get(resource, 0) >= total_needed:
-            raw_needs[resource] += total_needed
-            continue
-
-        # remaining needed after stock
-        remaining = total_needed - stocks.get(resource, 0)
-
-        # raw resource
-        if resource not in producers:
-            raw_needs[resource] += remaining
-            continue
-
-        # find producer
-        producer = None
-        for p in producers[resource]:
-            if resource not in p.needs or p.needs[resource] != p.results.get(resource, 0):
-                producer = p
-                break
-
-        if producer is None:
-            continue
-
-        produced_qty = producer.results[resource]
-        required_runs = math.ceil(remaining / produced_qty)
-
-        compute_plan(producer, producers, required_runs,
-                    stocks, proc_count, raw_needs, visiting)
-
-    visiting.remove(process.name)
-    return proc_count, raw_needs
-
-def find_best_combination(processes, producers, stocks, opt_for):
-    best_value = 0
-    best_proc_count = None
-    best_raw_needs = None
-
-    def can_apply(raw_needs, stocks):
-        for r, q in raw_needs.items():
-            if stocks.get(r, 0) < q:
-                return False
-        return True
-
-    def dfs(stocks, proc_count, raw_needs):
-        nonlocal best_value, best_proc_count, best_raw_needs
-
-        # current score
-        value = stocks.get(opt_for, 0)
-
-        if value > best_value:
-            best_value = value
-            best_proc_count = proc_count.copy()
-            best_raw_needs = raw_needs.copy()
-
-        # try all processes
-        for p in processes:
-            if opt_for not in p.results:
-                continue
-
-            # compute cost of doing it once
-            new_proc_count, needed = compute_plan(p, producers, 1, stocks)
-
-            # check feasibility
-            if not can_apply(needed, stocks):
-                continue
-
-            # 🔥 APPLY
-            new_stocks = stocks.copy()
-
-            # consume raw resources
-            for r, q in needed.items():
-                new_stocks[r] -= q
-
-            # add result
-            for r, q in p.results.items():
-                new_stocks[r] = new_stocks.get(r, 0) + q
-
-            # update process counts
-            updated_proc_count = proc_count.copy()
-            for k, v in new_proc_count.items():
-                updated_proc_count[k] += v
-
-            # update raw usage
-            updated_raw = raw_needs.copy()
-            for k, v in needed.items():
-                updated_raw[k] += v
-
-            # recurse
-            dfs(new_stocks, updated_proc_count, updated_raw)
-
-    dfs(copy.deepcopy(stocks), defaultdict(int), defaultdict(int))
-
-    return best_proc_count, best_raw_needs, best_value
-
 @dataclass(order=True, slots=True)
 class Event:
     """
@@ -185,29 +71,23 @@ class KrpsimSimulator:
 
         self.process_count = {p.name: 0 for p in processes}
 
+        self.producers = {}
+        self.final_processes = []
+        self.opt_for = ''
 
-        producers = {}
         for p in processes:
             for res in p.results:
-                producers.setdefault(res, []).append(p)
+                self.producers.setdefault(res, []).append(p)
         
         for x in self.optimize_criteria:
             if x != 'time':
-                opt_for = x
+                self.opt_for = x
                 
-        print("opt for is: ", opt_for)
-        
-        final_processes = []
         for p in processes:
-            res = p.results.get(opt_for, 0)
+            res = p.results.get(self.opt_for, 0)
             if(res > 0):
-                final_processes.append(p)
-
-        proc_count, raw_needs, value = find_best_combination(final_processes, producers, self.initial_stocks, opt_for)
-
-        print(proc_count)
-        print(raw_needs)
-        print("best value:", value)
+                self.final_processes.append(p)
+                print(processes) if self.processes == processes else print("**********not the same *********\n",processes,"\n\n\n", self.processes, "\n\n\n", self.final_processes)
         
 
     def can_execute_process(self, process: Process) -> bool:
@@ -293,14 +173,14 @@ class KrpsimSimulator:
         if self.running_processes[process_name] == 0:
             del self.running_processes[process_name]
 
-    def find_executable_processes(self) -> list[Process]:
+    def find_executable_processes(self, proc_count) -> list[Process]:
         """
         Return all processes that can be started with the current stock.
 
         Returns:
             A list of Process objects that pass can_execute_process.
         """
-        return [p for p in self.processes.values() if self.can_execute_process(p)]
+        return [p for p in self.processes.values() if self.can_execute_process(p) and p.name in proc_count and proc_count[p.name] > 0]
 
     def choose_next_process(self, executable_processes: list[Process]) -> Process | None:
         """
@@ -405,6 +285,12 @@ class KrpsimSimulator:
         """
         if verbose:
             print(f"\n{25*'-'}SIMULATION{25*'-'}\n")
+            
+        proc_count, raw_needs, value = self.find_best_combination(self.initial_stocks)
+
+        print(proc_count)
+        print(raw_needs)
+        print("best value:", value)
 
         iteration_count = 0
         iteration_safety_factor = 1000
@@ -418,16 +304,17 @@ class KrpsimSimulator:
 
             # 2 - Greedily start as many processes as possible
             started_this_tick = {}  # process_name -> times started in this scheduling round
-            executable_processes = self.find_executable_processes()
+            executable_processes = self.find_executable_processes(proc_count)
             while executable_processes:
                 process_to_start = self.choose_next_process(executable_processes)
                 if not process_to_start:
                     break
                 self.start_process(process_to_start, verbose)
+                proc_count[process_to_start.name] -= 1
                 if PARALLEL_MODE == "per_tick":
                     started_this_tick[process_to_start.name] = started_this_tick.get(process_to_start.name, 0) + 1
                 executable_processes = [
-                    p for p in self.find_executable_processes()
+                    p for p in self.find_executable_processes(proc_count)
                     if PARALLEL_MODE != "per_tick" or started_this_tick.get(p.name, 0) < MAX_PARALLEL
                 ]
 
@@ -480,6 +367,123 @@ class KrpsimSimulator:
             A newline-separated string of 'time:process_name' entries.
         """
         return '\n'.join(f"{time}:{name}" for time, name in self.execution_log)
+    
+    def compute_plan(self, process, times, stocks, proc_count=None, raw_needs=None, visiting=None):
+
+        if proc_count is None:
+            proc_count = defaultdict(int)
+        if raw_needs is None:
+            raw_needs = defaultdict(int)
+        if visiting is None:
+            visiting = set()
+
+        # 🔒 cycle guard
+        if process.name in visiting:
+            return proc_count, raw_needs
+
+        visiting.add(process.name)
+        proc_count[process.name] += times
+
+        for resource, qty in process.needs.items():
+            total_needed = qty * times
+
+            # ✅ BREAK CYCLE: use available stock first
+            if stocks.get(resource, 0) >= total_needed:
+                raw_needs[resource] += total_needed
+                continue
+
+            # remaining needed after stock
+            remaining = total_needed - stocks.get(resource, 0)
+
+            # raw resource
+            if resource not in self.producers:
+                raw_needs[resource] += remaining
+                continue
+            
+            # find producer
+            producer = None
+            for p in self.producers[resource]:
+                if resource not in p.needs or p.needs[resource] != p.results.get(resource, 0):
+                    producer = p
+                    break
+
+            if producer is None:
+                # if resource in self.initial_stocks:
+                #     raw_needs[resource] += total_needed
+                # else:
+                #     # resource cannot be produced AND not in initial stock
+                #     raw_needs[resource] += remaining  # still count it
+                continue
+
+            produced_qty = producer.results[resource]
+            required_runs = math.ceil(remaining / produced_qty)
+
+            self.compute_plan(producer, required_runs, stocks, proc_count, raw_needs, visiting)
+
+        visiting.remove(process.name)
+        return proc_count, raw_needs
+
+    def find_best_combination(self, stocks):
+        best_value = 0
+        best_proc_count = None
+        best_raw_needs = None
+
+        def can_apply(raw_needs, stocks):
+            for r, q in raw_needs.items():
+                if stocks.get(r, 0) < q:
+                    return False
+            return True
+
+        def dfs(stocks, proc_count, raw_needs):
+            nonlocal best_value, best_proc_count, best_raw_needs
+
+            # current score
+            value = stocks.get(self.opt_for, 0)
+
+            if value > best_value:
+                best_value = value
+                best_proc_count = proc_count.copy()
+                best_raw_needs = raw_needs.copy()
+
+            # try all processes
+            for p in self.final_processes:
+                if self.opt_for not in p.results:
+                    continue
+
+                # compute cost of doing it once
+                new_proc_count, needed = self.compute_plan(p, 1, stocks)
+
+                # check feasibility
+                if not can_apply(needed, stocks):
+                    continue
+
+                # 🔥 APPLY
+                new_stocks = stocks.copy()
+
+                # consume raw resources
+                for r, q in needed.items():
+                    new_stocks[r] -= q
+
+                # add result
+                for r, q in p.results.items():
+                    new_stocks[r] = new_stocks.get(r, 0) + q
+
+                # update process counts
+                updated_proc_count = proc_count.copy()
+                for k, v in new_proc_count.items():
+                    updated_proc_count[k] += v
+
+                # update raw usage
+                updated_raw = raw_needs.copy()
+                for k, v in needed.items():
+                    updated_raw[k] += v
+
+                # recurse
+                dfs(new_stocks, updated_proc_count, updated_raw)
+
+        dfs(copy.deepcopy(stocks), defaultdict(int), defaultdict(int))
+
+        return best_proc_count, best_raw_needs, best_value
 
 
 def main() -> None:
