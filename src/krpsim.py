@@ -273,40 +273,75 @@ class KrpsimSimulator:
         if not executable_processes:
             return None
 
+        def compute_gain(proc: Process, stocks: dict, running: dict) -> float:
+            """Compute raw gain for proc given a stock and in-flight state."""
+            g = 0.0
+            for res, qty in proc.results.items():
+                res_value = self._resource_values.get(res, 0.0)
+                if res_value <= 0.0:
+                    continue
+                if res not in self.optimize_criteria:
+                    demand = self._total_demand.get(res, 0)
+                    if demand == 0:
+                        continue
+                    stock = stocks.get(res, 0)
+                    in_flight = sum(
+                        count * max(0, self.processes[name].results.get(res, 0)
+                                       - self.processes[name].needs.get(res, 0))
+                        for name, count in running.items()
+                    )
+                    effective_stock = stock + in_flight
+                    if effective_stock >= demand:
+                        continue
+                    res_value *= (demand - effective_stock) / demand
+                g += res_value * qty
+            return g
+
         def process_score(p: Process) -> float:
             """
             Compute the optimization score for a single process.
 
-            Args:
-                p: The process to score.
+            When 'time' is an optimize criterion, uses 1-step lookahead:
+            score = (gain_now + best_next_gain) / (delay + best_next_delay).
+            This lets the scheduler prefer a process that sets up a faster
+            successor over one that produces more output immediately but
+            leaves costly resources stranded (e.g. steak cuisson_3 vs cuisson_2).
 
             Returns:
                 A float representing gain per time unit toward the optimize targets.
             """
-            gain = 0.0
-            for res, qty in p.results.items():
-                res_value = self._resource_values.get(res, 0.0)
-                if res_value <= 0.0:
-                    continue
-                # Stock saturation: linearly reduce score as stock fills up to total demand.
-                # At stock >= demand the factor hits 0 — hard cutoff.
-                # Optimize targets are exempt: we always want more of those.
-                if res not in self.optimize_criteria:
-                    demand = self._total_demand.get(res, 0)
-                    if demand == 0:
-                        continue  # nothing ever consumes this resource; no point producing it
-                    stock = self.current_stocks.get(res, 0)
-                    if stock >= demand:
-                        continue  # hard cutoff: already have at least one full "round" worth
-                    res_value *= (demand - stock) / demand
-                gain += res_value * qty
-            if 'time' in self.optimize_criteria:       # if minimizing time is a goal
-                time_bonus = 1.0 / (p.delay + 1)      # faster processes get a higher bonus (+1 avoids division by zero)
-                gain += time_bonus                     # add the time bonus to the raw resource gain
-            if p.delay == 0:                           # instant process: avoid division by zero
-                return float('inf') if gain > 0 else 0 # infinite score if it produces something useful, else 0
+            gain = compute_gain(p, self.current_stocks, self.running_processes)
 
-            return gain / p.delay                      # score = gain per time unit (higher is better)
+            if 'time' in self.optimize_criteria:
+                # Build virtual state after p starts (resources consumed) and finishes (produced)
+                virtual_stock = dict(self.current_stocks)
+                for r, qty in p.needs.items():
+                    virtual_stock[r] = virtual_stock.get(r, 0) - qty
+                for r, qty in p.results.items():
+                    virtual_stock[r] = virtual_stock.get(r, 0) + qty
+                virtual_running = dict(self.running_processes)
+                virtual_running[p.name] = virtual_running.get(p.name, 0) + 1
+
+                # Find the best process executable from the virtual state
+                best_next_gain = 0.0
+                best_next_delay = p.delay if p.delay > 0 else 1
+                for p2 in self.processes.values():
+                    if not all(virtual_stock.get(r, 0) >= qty for r, qty in p2.needs.items()):
+                        continue
+                    g2 = compute_gain(p2, virtual_stock, virtual_running)
+                    if g2 > best_next_gain:
+                        best_next_gain = g2
+                        best_next_delay = p2.delay if p2.delay > 0 else 1
+
+                total_gain = gain + best_next_gain
+                total_delay = p.delay + best_next_delay
+                if total_delay == 0:
+                    return float('inf') if total_gain > 0 else 0
+                return total_gain / total_delay
+
+            if p.delay == 0:
+                return float('inf') if gain > 0 else 0
+            return gain / p.delay
 
         best = max(executable_processes, key=process_score)
         if process_score(best) <= 0:
