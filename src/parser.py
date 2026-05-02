@@ -85,6 +85,8 @@ class KrpsimParser:
                         continue
 
                     try:
+                        if ':' not in line and '#' not in line:
+                            raise ValueError(f"Invalid line: {line}")
                         if ':' not in line:
                             continue
 
