@@ -1,7 +1,6 @@
 PYTHON		= python3
 KRPSIM		= src/krpsim.py
 VERIF		= src/krpsim_verif.py
-TRACE_FDR	= traces
 TRACE		= traces/simulation_trace.txt
 
 RESOURCES	= resources/simple resources/farm resources/ikea \
@@ -19,19 +18,26 @@ all: run
 
 run:
 	@echo "==> krpsim: $(FILE) (delay=$(DELAY))"
-	$(PYTHON) $(KRPSIM) $(FILE) $(DELAY)
+	@cd src && $(PYTHON) krpsim.py ../$(FILE) $(DELAY)
 
 infinite:
 	@echo "==> krpsim infinite: $(FILE) (delay=$(DELAY))"
-	$(PYTHON) $(KRPSIM) $(INIFITE) $(DELAY)
+	@cd src && $(PYTHON) krpsim.py ../$(INIFITE) $(DELAY)
 
 sustained:
 	@echo "==> krpsim sustained: $(FILE) (delay=$(DELAY))"
-	$(PYTHON) $(KRPSIM) $(SUSTAINED) $(DELAY)
+	@cd src && $(PYTHON) krpsim.py ../$(SUSTAINED) $(DELAY)
+
+test:
+	@for f in $(RESOURCES); do \
+		echo "==> $$f"; \
+		cd src && $(PYTHON) krpsim.py ../$$f $(DELAY); cd ..; \
+		echo ""; \
+	done
 
 verif:
 	@echo "==> krpsim_verif: $(FILE) / $(TRACE)"
-	$(PYTHON) $(VERIF) $(FILE) $(TRACE)
+	@cd src && $(PYTHON) krpsim_verif.py ../$(FILE) ../$(TRACE)
 
 clean:
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
@@ -39,13 +45,14 @@ clean:
 	@echo "Cleaned."
 
 fclean: clean
-	@rm -rf $(TRACE_FDR)
+	@rm -f $(TRACE)
 
 re: fclean run
 
 help:
 	@echo "Usage:"
 	@echo "  make run   [FILE=resources/...] [DELAY=100]  -- lance krpsim"
+	@echo "  make test  [DELAY=100]                       -- lance krpsim sur toutes les ressources"
 	@echo "  make verif [FILE=resources/...] [TRACE=...]  -- verifie une trace"
 	@echo "  make clean                                    -- supprime les __pycache__"
 	@echo "  make fclean                                   -- clean + supprime la trace"

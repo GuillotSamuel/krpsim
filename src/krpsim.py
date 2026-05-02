@@ -388,7 +388,7 @@ def main() -> None:
     simulator.display_final_state()
 
     # Write the execution trace to the traces folder so it can be verified later by krpsim_verif
-    traces_folder = './traces'
+    traces_folder = '../traces'
     os.makedirs(traces_folder, exist_ok=True)
 
     with open(f'{traces_folder}/simulation_trace.txt', 'w') as f:
