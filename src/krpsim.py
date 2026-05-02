@@ -73,8 +73,13 @@ class KrpsimSimulator:
         self._total_demand: dict[str, int] = {}
         for p in processes:
             for r, qty in p.needs.items():
+                # Compute the net consumption of resource r in process p:
+                # net = amount consumed (needs) minus amount produced (results)
                 net = qty - p.results.get(r, 0)
+                # If net > 0, the process is a true consumer of r (not pass-through or net producer)
                 if net > 0:
+                    # Accumulate total net demand for resource r across all processes
+                    # This represents how much of r the system actually needs overall
                     self._total_demand[r] = self._total_demand.get(r, 0) + net
 
     def _compute_resource_values(self) -> dict[str, float]:
