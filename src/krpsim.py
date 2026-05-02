@@ -97,33 +97,69 @@ class KrpsimSimulator:
         resources (consumed and returned unchanged, e.g. four, truck) do not
         inherit inflated values.
         """
+        # Step 1 — Initialize target values
+        # Each optimization target starts with value = 1.0 (except 'time')
         values: dict[str, float] = {r: 1.0 for r in self.optimize_criteria if r != 'time'}
+        # Track resources whose value has been finalized (Dijkstra property)
         visited: set[str] = set()
+        # Max-heap (using negative values because heapq is a min-heap)
+        # Ensures highest-value resources are processed first
         heap = [(-v, r) for r, v in values.items()]
         heapq.heapify(heap)
 
+        # Step 2 — Traverse graph backward
         while heap:
             neg_val, resource = heapq.heappop(heap)
+            
+            # Skip if already finalized (prevents cycles from inflating values)
             if resource in visited:
                 continue
+            
+            # Mark resource as finalized
             visited.add(resource)
 
+            # Step 3 — Find processes that PRODUCE this resource
             for p in self.processes.values():
+                # Compute net production for each output resource:
+                # net = produced - consumed
+                # Only keep strictly positive net production
                 net_produced = {r: qty - p.needs.get(r, 0) for r, qty in p.results.items()
                                 if qty > p.needs.get(r, 0)}
+                
+                # Skip if current resource is not produced by this process
                 if resource not in net_produced:
                     continue
+                
+                # Step 4 — Compute total output value of the process
+                # Weighted sum of values of all net outputs
                 output_value = sum(values.get(r, 0.0) * qty for r, qty in net_produced.items())
+                
+                # Ignore processes that produce no valuable output
                 if output_value <= 0:
                     continue
+                
+                # Step 5 — Compute net consumption for inputs:
+                # net = consumed - produced
+                # Only keep strictly positive net consumption
                 net_consumed = {r: qty - p.results.get(r, 0) for r, qty in p.needs.items()
                                 if qty > p.results.get(r, 0)}
+                
+                # Step 6 — Propagate value to input resources
                 for r, qty in net_consumed.items():
+                    
+                    # Skip if already finalized or if it's an optimization target
+                    # (prevents feedback loops into targets)
                     if r in visited or r in self.optimize_criteria:
                         continue
+                    
+                    # Compute value contribution per unit of input resource
                     derived = output_value / qty
+                    
+                    # Step 7 — Relaxation step (Dijkstra-style update)
+                    # Keep the maximum value found so far
                     if derived > values.get(r, 0.0):
                         values[r] = derived
+                        # Push updated value into heap for further propagation
                         heapq.heappush(heap, (-derived, r))
 
         return values
